@@ -99,22 +99,16 @@ CAMLprim value stub_libxl_ctx_alloc(value logger)
 	libxl_ctx *ctx;
 	int ret;
 
-	caml_enter_blocking_section();
 	ret = libxl_ctx_alloc(&ctx, LIBXL_VERSION, 0, (struct xentoollog_logger *) logger);
 	if (ret != 0) \
 		failwith_xl(ERROR_FAIL, "cannot init context");
-	caml_leave_blocking_section();
 	CAMLreturn((value)ctx);
 }
 
 CAMLprim value stub_libxl_ctx_free(value ctx)
 {
 	CAMLparam1(ctx);
-
-	caml_enter_blocking_section();
 	libxl_ctx_free(CTX);
-	caml_leave_blocking_section();
-
 	CAMLreturn(Val_unit);
 }
 
