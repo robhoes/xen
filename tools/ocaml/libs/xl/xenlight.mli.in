@@ -38,7 +38,9 @@ type ctx
 external ctx_alloc: Xentoollog.handle -> ctx = "stub_libxl_ctx_alloc"
 external ctx_free: ctx -> unit = "stub_libxl_ctx_free"
 
-external test_raise_exception: unit = "stub_raise_exception"
+val with_ctx : ?logger:Xentoollog.handle -> (ctx -> 'a) -> 'a
+
+external test_raise_exception: unit -> unit = "stub_raise_exception"
 
 type domid = int
 type devid = int
