@@ -37,4 +37,4 @@ external send_trigger : domid -> trigger -> int -> unit = "stub_xl_send_trigger"
 external send_sysrq : domid -> char -> unit = "stub_xl_send_sysrq"
 external send_debug_keys : ctx -> string -> unit = "stub_xl_send_debug_keys"
 
-let _ = Callback.register_exception "xl.error" (Error "register_callback")
+let _ = Callback.register_exception "Xenlight.Error" (Error(""))
