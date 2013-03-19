@@ -63,8 +63,6 @@ type event =
 	| POLLNVAL (* Invalid request: fd not open (revents only). *)
 (* @@LIBXL_TYPES@@ *)
 
-type ctx
-
 external list_domain: ctx -> Dominfo.t list = "stub_libxl_list_domain"
 
 external domain_create_new : ctx -> Domain_config.t -> domid = "stub_xl_domain_create_new"
