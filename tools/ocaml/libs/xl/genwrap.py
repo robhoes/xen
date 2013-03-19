@@ -240,7 +240,7 @@ def c_val(ty, c, o, indent="", parent = None):
                 s += "\t\t    case %d: %s = %s; break;\n" % (n,
                                                     parent + ty.keyvar.name,
                                                     f.enumname)
-            n += 1
+                n += 1
         s += "\t\t    default: failwith_xl(ERROR_FAIL, \"variant handling bug %s%s (long)\"); break;\n" % (parent, ty.keyvar.name)        
         s += "\t\t}\n"
         s += "\t} else {\n"
@@ -256,7 +256,7 @@ def c_val(ty, c, o, indent="", parent = None):
                 (nparent,fexpr) = ty.member(c, f, False)
                 s += "%s" % c_val(f.type, fexpr, o, indent=indent+"\t\t        ")
                 s += "break;\n"
-            n += 1
+                n += 1
         s += "\t\t    default: failwith_xl(ERROR_FAIL, \"variant handling bug %s%s (block)\"); break;\n" % (parent, ty.keyvar.name)
         s += "\t\t}\n"
         s += "\t}\n"
@@ -330,23 +330,26 @@ def ocaml_Val(ty, o, c, indent="", parent = None, struct_tag = None):
         s += "}"
     elif isinstance(ty, idl.KeyedUnion):
         n = 0
+        m = 0
         s += "switch(%s) {\n" % (parent + ty.keyvar.name)
         for f in ty.fields:
             s += "\t    case %s:\n" % f.enumname
             if f.type is None:
                 s += "\t        /* %d: None */\n" % n
                 s += "\t        %s = Val_long(%d);\n" % (o,n)
+                n += 1
             elif not f.type.has_fields():
                 s += "\t        /* %d: Long */\n" % n
                 s += "\t        %s = Val_long(%d);\n" % (o,n)
+                n += 1
             else:
-                s += "\t        /* %d: Block */\n" % n
+                s += "\t        /* %d: Block */\n" % m
                 (nparent,fexpr) = ty.member(c, f, parent is None)
-                s += ocaml_Val(f.type, o, fexpr, struct_tag = n, indent="\t        ", parent=nparent)
+                s += ocaml_Val(f.type, o, fexpr, struct_tag = m, indent="\t        ", parent=nparent)
                 s += "\n"
+                m += 1
                 #s += "\t        %s = caml_alloc(%d,%d);\n" % (o,len(f.type.fields),n)
             s += "\t        break;\n"
-            n += 1
         s += "\t    default: failwith_xl(ERROR_FAIL, \"cannot convert value from %s\"); break;\n" % ty.typename
         s += "\t}"
     elif isinstance(ty,idl.Aggregate) and (parent is None or ty.rawname is None):
