@@ -325,7 +325,7 @@ static value Val_string_option(char *c_val)
 {
 	CAMLparam0();
 	if (c_val)
-		CAMLreturn(caml_copy_string(c_val));
+		CAMLreturn(Val_some(caml_copy_string(c_val)));
 	else
 		CAMLreturn(Val_none);
 }
