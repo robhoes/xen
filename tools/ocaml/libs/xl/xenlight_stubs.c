@@ -514,6 +514,32 @@ value stub_libxl_domain_suspend(value ctx, value domid, value fd)
 	CAMLreturn(Val_unit);
 }
 
+value stub_libxl_domain_pause(value ctx, value domid)
+{
+	CAMLparam2(ctx, domid);
+	int ret;
+
+	ret = libxl_domain_pause(CTX, Int_val(domid));
+
+	if (ret != 0)
+		failwith_xl(ret, "domain_pause");
+
+	CAMLreturn(Val_unit);
+}
+
+value stub_libxl_domain_unpause(value ctx, value domid)
+{
+	CAMLparam2(ctx, domid);
+	int ret;
+
+	ret = libxl_domain_unpause(CTX, Int_val(domid));
+
+	if (ret != 0)
+		failwith_xl(ret, "domain_unpause");
+
+	CAMLreturn(Val_unit);
+}
+
 value stub_xl_device_nic_of_devid(value ctx, value domid, value devid)
 {
 	CAMLparam3(ctx, domid, devid);

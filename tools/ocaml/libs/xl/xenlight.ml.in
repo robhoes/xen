@@ -101,6 +101,8 @@ external domain_wait_shutdown : ctx -> domid -> unit = "stub_libxl_domain_wait_s
 external domain_reboot : ctx -> domid -> unit = "stub_libxl_domain_reboot"
 external domain_destroy : ctx -> domid -> unit = "stub_libxl_domain_destroy"
 external domain_suspend : ctx -> domid -> Unix.file_descr -> unit = "stub_libxl_domain_suspend"
+external domain_pause : ctx -> domid -> unit = "stub_libxl_domain_pause"
+external domain_unpause : ctx -> domid -> unit = "stub_libxl_domain_unpause"
 
 external send_trigger : domid -> trigger -> int -> unit = "stub_xl_send_trigger"
 external send_sysrq : domid -> char -> unit = "stub_xl_send_sysrq"
