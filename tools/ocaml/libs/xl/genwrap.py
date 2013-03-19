@@ -32,7 +32,11 @@ DEVICE_LIST =      [ ("list",           ["ctx", "domid", "t list"]),
 functions = { # ( name , [type1,type2,....] )
     "device_vfb":     DEVICE_FUNCTIONS,
     "device_vkb":     DEVICE_FUNCTIONS,
-    "device_disk":    DEVICE_FUNCTIONS,
+    "device_disk":    DEVICE_FUNCTIONS +
+                      [ ("insert",         ["ctx", "?async:'a", "t", "domid", "unit"]),
+                       # ("eject",          ["ctx", "?async:'a", "t", "domid", "unit"]),
+                        ("of_vdev",        ["ctx", "domid", "string", "t"]),
+                      ],
     "device_nic":     DEVICE_FUNCTIONS + DEVICE_LIST +
                       [ ("of_devid",       ["ctx", "domid", "int", "t"]),
                       ],
