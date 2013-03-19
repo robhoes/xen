@@ -19,7 +19,8 @@ builtins = {
     "libxl_mac":            ("int array",              "Mac_val(&%(c)s, %(o)s)",    "Val_mac(&%(c)s)"),
     "libxl_hwcap":          ("int32 array",            None,                                "Val_hwcap(&%(c)s)"),
     # This is an opaque type
-    "libxl_cpuid_policy_list": ("Cpuid_policy.t",      "Cpuid_policy_list_val(&%(c)s, %(o)s)",   "Val_cpuid_policy_list(%(c)s)"),    
+    "libxl_cpuid_policy_list": ("unit",      "%(c)s = 0",   "Val_unit"),
+    #"libxl_cpuid_policy_list": ("Cpuid_policy.t",      "Cpuid_policy_list_val(&%(c)s, %(o)s)",   "Val_cpuid_policy_list(%(c)s)"),    
     }
 
 DEVICE_FUNCTIONS = [ ("add",            ["ctx", "?async:'a", "t", "domid", "unit"]),
