@@ -50,3 +50,4 @@ type devid = int
 external send_trigger : ctx -> domid -> trigger -> int -> unit = "stub_xl_send_trigger"
 external send_sysrq : ctx -> domid -> char -> unit = "stub_xl_send_sysrq"
 external send_debug_keys : ctx -> string -> unit = "stub_xl_send_debug_keys"
+external xen_console_read : ctx -> string list = "stub_xl_xen_console_read"
