@@ -584,7 +584,6 @@ DEVICE_ADDREMOVE(vfb)
 DEVICE_ADDREMOVE(vkb)
 DEVICE_ADDREMOVE(pci)
 _DEVICE_ADDREMOVE(disk, cdrom, insert)
-//_DEVICE_ADDREMOVE(disk, cdrom, eject)
 
 value stub_xl_device_nic_list(value ctx, value domid)
 {
