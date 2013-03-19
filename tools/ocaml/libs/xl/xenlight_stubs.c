@@ -229,7 +229,7 @@ static int Bitmap_val(libxl_ctx *ctx, libxl_bitmap *c_val, value v)
 	CAMLparam1(v);
 	int i, len = Wosize_val(v);
 
-	if (!libxl_bitmap_alloc(ctx, c_val, len))
+	if (len > 0 && !libxl_bitmap_alloc(ctx, c_val, len))
 		failwith_xl(ERROR_NOMEM, "cannot allocate bitmap");
 	for (i=0; i<len; i++) {
 		if (Int_val(Field(v, i)))
