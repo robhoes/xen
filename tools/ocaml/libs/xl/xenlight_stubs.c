@@ -320,6 +320,23 @@ static value Val_hwcap(libxl_hwcap *c_val)
 	CAMLreturn(hwcap);
 }
 
+static value Val_string_option(char *c_val)
+{
+	CAMLparam0();
+	if (c_val)
+		CAMLreturn(caml_copy_string(c_val));
+	else
+		CAMLreturn(Val_none);
+}
+
+static char *String_option_val(value v)
+{
+	char *s = NULL;
+	if (v != Val_none)
+		s = dup_String_val(Some_val(v));
+	return s;
+}
+
 #include "_libxl_types.inc"
 
 value stub_libxl_list_domain(value ctx)
