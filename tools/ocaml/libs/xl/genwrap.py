@@ -70,8 +70,14 @@ def ocaml_type_of(ty):
     else:
         return ty.rawname
 
+def munge_name(name):
+    if name == "type":
+        return "ty"
+    else:
+        return name
+    
 def ocaml_instance_of(type, name):
-    return "%s : %s" % (name, ocaml_type_of(type))
+    return "%s : %s" % (munge_name(name), ocaml_type_of(type))
 
 def gen_ocaml_ml(ty, interface, indent=""):
 
