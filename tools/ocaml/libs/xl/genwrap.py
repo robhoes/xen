@@ -4,22 +4,22 @@ import sys,os
 
 import idl
 
-# typename -> ( ocaml_type, c_from_ocaml, ocaml_from_c )
+# typename -> ( ocaml_type, c_from_ocaml, ocaml_from_c, ocaml_default )
 builtins = {
-    "bool":                 ("bool",                   "%(c)s = Bool_val(%(o)s)",           "Val_bool(%(c)s)" ),
-    "int":                  ("int",                    "%(c)s = Int_val(%(o)s)",            "Val_int(%(c)s)"  ),
-    "char *":               ("string option",          "%(c)s = String_option_val(%(o)s)",  "Val_string_option(%(c)s)"),
-    "libxl_domid":          ("domid",                  "%(c)s = Int_val(%(o)s)",            "Val_int(%(c)s)"  ),
-    "libxl_devid":          ("devid",                  "%(c)s = Int_val(%(o)s)",            "Val_int(%(c)s)"  ),
-    "libxl_defbool":        ("bool option",            "%(c)s = Defbool_val(%(o)s)",        "Val_defbool(%(c)s)" ),
-    "libxl_uuid":           ("int array",              "Uuid_val(&%(c)s, %(o)s)",   "Val_uuid(&%(c)s)"),
-    "libxl_bitmap":         ("bool array",             "Bitmap_val(ctx, &%(c)s, %(o)s)",   "Val_bitmap(&%(c)s)"),    
-    "libxl_key_value_list": ("(string * string) list", "libxl_key_value_list_val(&%(c)s, %(o)s)",                              None),
-    "libxl_string_list":    ("string list",            "libxl_string_list_val(&%(c)s, %(o)s)",                                 "String_list_val(&%(c)s, %(o)s)"),
-    "libxl_mac":            ("int array",              "Mac_val(&%(c)s, %(o)s)",    "Val_mac(&%(c)s)"),
-    "libxl_hwcap":          ("int32 array",            None,                                "Val_hwcap(&%(c)s)"),
+    "bool":                 ("bool",                   "%(c)s = Bool_val(%(o)s)",           "Val_bool(%(c)s)",            "false" ),
+    "int":                  ("int",                    "%(c)s = Int_val(%(o)s)",            "Val_int(%(c)s)",             "0"  ),
+    "char *":               ("string option",          "%(c)s = String_option_val(%(o)s)",  "Val_string_option(%(c)s)",   "None"),
+    "libxl_domid":          ("domid",                  "%(c)s = Int_val(%(o)s)",            "Val_int(%(c)s)",             "0"  ),
+    "libxl_devid":          ("devid",                  "%(c)s = Int_val(%(o)s)",            "Val_int(%(c)s)",             "0"  ),
+    "libxl_defbool":        ("bool option",            "%(c)s = Defbool_val(%(o)s)",        "Val_defbool(%(c)s)",         "None" ),
+    "libxl_uuid":           ("int array",              "Uuid_val(&%(c)s, %(o)s)",   "Val_uuid(&%(c)s)",                   '[||]'),
+    "libxl_bitmap":         ("bool array",             "Bitmap_val(ctx, &%(c)s, %(o)s)",   "Val_bitmap(&%(c)s)",          "[||]"),
+    "libxl_key_value_list": ("(string * string) list", "libxl_key_value_list_val(&%(c)s, %(o)s)", None,                   "[]"),
+    "libxl_string_list":    ("string list",            "libxl_string_list_val(&%(c)s, %(o)s)", "String_list_val(&%(c)s, %(o)s)", "[]"),
+    "libxl_mac":            ("int array",              "Mac_val(&%(c)s, %(o)s)",    "Val_mac(&%(c)s)",                    "[||]"),
+    "libxl_hwcap":          ("int32 array",            None,                                "Val_hwcap(&%(c)s)",          "[||]"),
     # The following needs to be sorted out later
-    "libxl_cpuid_policy_list": ("unit",                "%(c)s = 0",                         "Val_unit"),
+    "libxl_cpuid_policy_list": ("unit",                "%(c)s = 0",                         "Val_unit",                   "()"),
     }
 
 DEVICE_FUNCTIONS = [ ("add",            ["ctx", "?async:'a", "t", "domid", "unit"]),
@@ -79,7 +79,7 @@ def ocaml_type_of(ty):
     elif isinstance(ty,idl.Builtin):
         if not builtins.has_key(ty.typename):
             raise NotImplementedError("Unknown Builtin %s (%s)" % (ty.typename, type(ty)))
-        typename,_,_ = builtins[ty.typename]
+        typename,_,_,_ = builtins[ty.typename]
         if not typename:
             raise NotImplementedError("No typename for Builtin %s (%s)" % (ty.typename, type(ty)))
         return typename
@@ -87,6 +87,53 @@ def ocaml_type_of(ty):
         return ty.union_name
     elif isinstance(ty,idl.Aggregate):
         return ty.rawname.capitalize() + ".t"
+    else:
+        return ty.rawname
+
+def ocaml_default_of(ty):
+    if ty.rawname in ["domid","devid"]:
+        return "0"
+    elif isinstance(ty,idl.UInt):
+        if ty.width in [8, 16]:
+            # handle as ints
+            width = None
+        elif ty.width == 32:
+            width = "l"
+        elif ty.width == 64:
+            width = "L"
+        else:
+            raise NotImplementedError("Cannot handle %d-bit int" % ty.width)
+        if width:
+            return "0" + width
+        else:
+            return "0"
+    elif isinstance(ty,idl.Array):
+        return "[||]"
+    elif isinstance(ty,idl.Builtin):
+        if not builtins.has_key(ty.typename):
+            raise NotImplementedError("Unknown Builtin %s (%s)" % (ty.typename, type(ty)))
+        _,_,_,default = builtins[ty.typename]
+        if not default:
+            raise NotImplementedError("No default for Builtin %s (%s)" % (ty.typename, type(ty)))
+        return default
+    elif isinstance(ty,idl.KeyedUnion):
+        if ty.keyvar.init_val:
+            s = "   (* TODO: use keyvar init_val: " + str(ty.keyvar.init_val) + "*)"
+        else:
+            s = ""
+        f = ty.fields[0]
+        if f.type == None:
+            return f.name.capitalize() + s
+        elif f.type.rawname is not None:
+            return "%s default_%s" % (f.name.capitalize(), f.type.rawname.capitalize()) + s
+        elif f.type.has_fields():
+            return "%s default_%s" % (f.name.capitalize(), f.name) + s
+        else:
+            return f.name.capitalize() + s
+    elif isinstance(ty,idl.Aggregate):
+        return ty.rawname.capitalize() + ".default"
+    elif isinstance(ty,idl.Enumeration):
+        return ty.values[0].rawname
     else:
         return ty.rawname
 
@@ -103,6 +150,13 @@ def ocaml_instance_of_field(f):
         name = f.name
     return "%s : %s" % (munge_name(name), ocaml_type_of(f.type))
 
+def ocaml_instance_of_field_default(f):
+    if isinstance(f.type, idl.KeyedUnion):
+        name = f.type.keyvar.name
+    else:
+        name = f.name
+    return "%s = %s" % (munge_name(name), ocaml_default_of(f.type))
+
 def gen_struct(ty):
     s = ""
     for f in ty.fields:
@@ -113,9 +167,18 @@ def gen_struct(ty):
         s += "\t\t" + x + ";\n"
     return s
 
+def gen_struct_default(ty):
+    s = ""
+    for f in ty.fields:
+        if f.type.private:
+            continue
+        x = ocaml_instance_of_field_default(f)
+        x = x.replace("\n", "\n\t\t")
+        s += "\t\t" + x + ";\n"
+    return s
+
 def gen_ocaml_keyedunions(ty, interface, indent, parent = None):
     s = ""
-    
     if ty.rawname is not None:
         # Non-anonymous types need no special handling
         pass
@@ -133,6 +196,13 @@ def gen_ocaml_keyedunions(ty, interface, indent, parent = None):
             s += "{\n"
             s += gen_struct(f.type)
             s += "}\n"
+            if interface:
+                s += "val default_%s : %s_%s\n" % (f.name, nparent,f.name)
+            else:
+                s += "let default_%s =\n" % f.name
+                s += "{\n"
+                s += gen_struct_default(f.type)
+                s += "}\n"
 
         name = "%s__union" % ty.keyvar.name
         s += "\n"
@@ -195,6 +265,14 @@ def gen_ocaml_ml(ty, interface, indent=""):
         s += gen_struct(ty)
         s += "\t}\n"
         
+        if interface:
+            s += "\tval default : t\n"
+        else:
+            s += "\tlet default =\n"
+            s += "\t{\n"
+            s += gen_struct_default(ty)
+            s += "\t}\n"
+        
         if functions.has_key(ty.rawname):
             for name,args in functions[ty.rawname]:
                 s += "\texternal %s : " % name
@@ -224,7 +302,7 @@ def c_val(ty, c, o, indent="", parent = None):
     elif isinstance(ty,idl.Builtin):
         if not builtins.has_key(ty.typename):
             raise NotImplementedError("Unknown Builtin %s (%s)" % (ty.typename, type(ty)))
-        _,fn,_ = builtins[ty.typename]
+        _,fn,_,_ = builtins[ty.typename]
         if not fn:
             raise NotImplementedError("No c_val fn for Builtin %s (%s)" % (ty.typename, type(ty)))
         s += "%s;" % (fn % { "o": o, "c": c })
@@ -321,7 +399,7 @@ def ocaml_Val(ty, o, c, indent="", parent = None, struct_tag = None):
     elif isinstance(ty,idl.Builtin):
         if not builtins.has_key(ty.typename):
             raise NotImplementedError("Unknown Builtin %s (%s)" % (ty.typename, type(ty)))
-        _,_,fn = builtins[ty.typename]
+        _,_,fn,_ = builtins[ty.typename]
         if not fn:
             raise NotImplementedError("No ocaml Val fn for Builtin %s (%s)" % (ty.typename, type(ty)))
         s += "%s = %s;" % (o, fn % { "c": c })
