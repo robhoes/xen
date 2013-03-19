@@ -420,7 +420,6 @@ if __name__ == '__main__':
     # Do not generate these yet.
     blacklist = [
         "cpupoolinfo",
-        "domain_config",
         "vcpuinfo",
         ]
 
