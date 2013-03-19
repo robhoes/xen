@@ -253,17 +253,15 @@ static int Cpuid_policy_list_val(libxl_cpuid_policy_list *c_val, value v)
 	CAMLreturn(0);
 }
 
-static value Val_uuid (libxl_uuid *c_val)
+static value Val_uuid(libxl_uuid *c_val)
 {
 	CAMLparam0();
 	CAMLlocal1(v);
 	uint8_t *uuid = libxl_uuid_bytearray(c_val);
-	int i;
+	char buf[LIBXL_UUID_FMTLEN+1];
 
-	v = caml_alloc_tuple(16);
-
-	for(i=0; i<16; i++)
-		Store_field(v, i, Val_int(uuid[i]));
+	sprintf(buf, LIBXL_UUID_FMT, LIBXL__UUID_BYTES(uuid));
+	v = caml_copy_string(buf);
 
 	CAMLreturn(v);
 }
@@ -272,10 +270,8 @@ static int Uuid_val(libxl_uuid *c_val, value v)
 {
 	CAMLparam1(v);
 	int i;
-	uint8_t *uuid = libxl_uuid_bytearray(c_val);
 
-	for(i=0; i<16; i++)
-		uuid[i] = Int_val(Field(v, i));
+	libxl_uuid_from_string(c_val, dup_String_val(v));
 
 	CAMLreturn(0);
 }
@@ -427,6 +423,32 @@ value stub_xl_cputopology_get(value ctx)
 	libxl_cputopology_list_free(c_topology, nr);
 
 	CAMLreturn(topology);
+}
+
+value stub_xl_dominfo_list(value ctx)
+{
+	CAMLparam1(ctx);
+	CAMLlocal2(domlist, temp);
+	libxl_dominfo *c_domlist;
+	int i, nb;
+
+	c_domlist = libxl_list_domain(CTX, &nb);
+	if (!c_domlist)
+		failwith_xl(ERROR_FAIL, "dominfo_list");
+
+	domlist = temp = Val_emptylist;
+	for (i = nb - 1; i >= 0; i--) {
+		domlist = caml_alloc_small(2, Tag_cons);
+		Field(domlist, 0) = Val_int(0);
+		Field(domlist, 1) = temp;
+		temp = domlist;
+
+		Store_field(domlist, 0, Val_dominfo(&c_domlist[i]));
+	}
+
+	libxl_dominfo_list_free(c_domlist, nb);
+
+	CAMLreturn(domlist);
 }
 
 value stub_xl_domain_sched_params_get(value ctx, value domid)
