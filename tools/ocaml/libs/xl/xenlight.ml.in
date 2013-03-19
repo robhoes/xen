@@ -55,6 +55,21 @@ type ctx
 external ctx_alloc: Xentoollog.handle -> ctx = "stub_libxl_ctx_alloc"
 external ctx_free: ctx -> unit = "stub_libxl_ctx_free"
 
+let with_ctx ?logger f =
+	let logger' = match logger with
+		| None -> Xentoollog.create_stdio_logger (*~level:Xentoollog.Debug*) ()
+		| Some l -> l
+	in
+	let ctx = ctx_alloc logger' in
+	let res = try f ctx with exn ->
+		ctx_free ctx;
+		if logger = None then Xentoollog.destroy logger';
+		raise exn
+	in
+	ctx_free ctx;
+	if logger = None then Xentoollog.destroy logger';
+	res
+
 external test_raise_exception: unit -> unit = "stub_raise_exception"
 
 type domid = int
