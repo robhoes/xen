@@ -81,7 +81,7 @@ static void failwith_xl(int error, char *fname)
 
 	if (!exc)
 		caml_invalid_argument("Exception Xenlight.Error not initialized, please link xl.cma");
-
+	fprintf(stderr, "ERROR!! %d: %s\n", error, fname);
 	arg = caml_alloc_small(2, 0);
 
 	Field(arg, 0) = Val_error(error);
