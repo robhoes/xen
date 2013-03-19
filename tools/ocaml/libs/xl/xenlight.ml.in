@@ -86,6 +86,16 @@ type event =
 
 (* @@LIBXL_TYPES@@ *)
 
+external domain_create_new : ctx -> Domain_config.t -> domid = "stub_xl_domain_create_new"
+external domain_create_restore : ctx -> Domain_config.t -> Unix.file_descr -> domid = "stub_xl_domain_create_restore"
+external domain_shutdown : ctx -> domid -> unit = "stub_libxl_domain_shutdown"
+external domain_wait_shutdown : ctx -> domid -> unit = "stub_libxl_domain_wait_shutdown"
+external domain_reboot : ctx -> domid -> unit = "stub_libxl_domain_reboot"
+external domain_destroy : ctx -> domid -> unit = "stub_libxl_domain_destroy"
+external domain_suspend : ctx -> domid -> Unix.file_descr -> unit = "stub_libxl_domain_suspend"
+external domain_pause : ctx -> domid -> unit = "stub_libxl_domain_pause"
+external domain_unpause : ctx -> domid -> unit = "stub_libxl_domain_unpause"
+
 external send_trigger : ctx -> domid -> trigger -> int -> unit = "stub_xl_send_trigger"
 external send_sysrq : ctx -> domid -> char -> unit = "stub_xl_send_sysrq"
 external send_debug_keys : ctx -> string -> unit = "stub_xl_send_debug_keys"
