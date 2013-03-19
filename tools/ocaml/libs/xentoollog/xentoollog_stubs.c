@@ -112,9 +112,10 @@ static void stub_xtl_ocaml_vmessage(struct xentoollog_logger *logger,
 			       const char *format,
 			       va_list al)
 {
+	CAMLparam0();
+	CAMLlocalN(args, 4);
 	struct caml_xtl *xtl = (struct caml_xtl*)logger;
 	value *func = caml_named_value(xtl->vmessage_cb) ;
-	value args[4];
 	char *msg;
 
 	if (args == NULL)
@@ -133,6 +134,7 @@ static void stub_xtl_ocaml_vmessage(struct xentoollog_logger *logger,
 	free(msg);
 
 	caml_callbackN(*func, 4, args);
+	CAMLreturn0;
 }
 
 static void stub_xtl_ocaml_progress(struct xentoollog_logger *logger,
@@ -140,9 +142,10 @@ static void stub_xtl_ocaml_progress(struct xentoollog_logger *logger,
 				    const char *doing_what /* no \r,\n */,
 				    int percent, unsigned long done, unsigned long total)
 {
+	CAMLparam0();
+	CAMLlocalN(args, 5);
 	struct caml_xtl *xtl = (struct caml_xtl*)logger;
 	value *func = caml_named_value(xtl->progress_cb) ;
-	value args[5];
 
 	if (args == NULL)
 		caml_raise_out_of_memory();
@@ -157,6 +160,7 @@ static void stub_xtl_ocaml_progress(struct xentoollog_logger *logger,
 	args[4] = caml_copy_int64(total);
 
 	caml_callbackN(*func, 5, args);
+	CAMLreturn0;
 }
 
 static void xtl_destroy(struct xentoollog_logger *logger)
