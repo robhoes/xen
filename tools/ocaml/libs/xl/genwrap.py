@@ -119,7 +119,19 @@ def ocaml_default_of(ty):
             raise NotImplementedError("No default for Builtin %s (%s)" % (ty.typename, type(ty)))
         return default
     elif isinstance(ty,idl.KeyedUnion):
-        return ty.fields[-1].name.capitalize()
+        if ty.keyvar.init_val:
+            s = "   (* TODO: use keyvar init_val: " + str(ty.keyvar.init_val) + "*)"
+        else:
+            s = ""
+        f = ty.fields[0]
+        if f.type == None:
+            return f.name.capitalize() + s
+        elif f.type.rawname is not None:
+            return "%s default_%s" % (f.name.capitalize(), f.type.rawname.capitalize()) + s
+        elif f.type.has_fields():
+            return "%s default_%s" % (f.name.capitalize(), f.name) + s
+        else:
+            return f.name.capitalize() + s
     elif isinstance(ty,idl.Aggregate):
         return ty.rawname.capitalize() + ".default"
     elif isinstance(ty,idl.Enumeration):
@@ -169,7 +181,6 @@ def gen_struct_default(ty):
 
 def gen_ocaml_keyedunions(ty, interface, indent, parent = None):
     s = ""
-    
     if ty.rawname is not None:
         # Non-anonymous types need no special handling
         pass
@@ -187,6 +198,13 @@ def gen_ocaml_keyedunions(ty, interface, indent, parent = None):
             s += "{\n"
             s += gen_struct(f.type)
             s += "}\n"
+            if interface:
+                s += "val default_%s : %s_%s\n" % (f.name, nparent,f.name)
+            else:
+                s += "let default_%s =\n" % f.name
+                s += "{\n"
+                s += gen_struct_default(f.type)
+                s += "}\n"
 
         name = "%s__union" % ty.keyvar.name
         s += "\n"
