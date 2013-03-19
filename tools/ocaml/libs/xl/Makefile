@@ -15,7 +15,7 @@ OCAMLINCLUDE += -I ../xentoollog
 LIBS_xenlight = $(LDLIBS_libxenlight)
 
 xenlight_OBJS = $(OBJS)
-xenlight_C_OBJS = xenlight_stubs
+xenlight_C_OBJS = xenlight_stubs poll_stubs
 
 OCAML_LIBRARY = xenlight
 
