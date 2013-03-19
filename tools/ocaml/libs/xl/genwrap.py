@@ -19,7 +19,7 @@ builtins = {
     "libxl_mac":            ("int array",              "Mac_val(gc, lg, &%(c)s, %(o)s)",    "Val_mac(&%(c)s)"),
     "libxl_hwcap":          ("int32 array",            None,                                "Val_hwcap(&%(c)s)"),
     # This is an opaque type
-    "libxl_cpuid_policy_list": ("Cpuid_policy.t",      "Cpuid_policy_list_val(gc, lg, &%(c)s, %(o)s)",   "Val_cpuid_policy_list(&%(c)s)"),    
+    "libxl_cpuid_policy_list": ("Cpuid_policy.t",      "Cpuid_policy_list_val(gc, lg, &%(c)s, %(o)s)",   "Val_cpuid_policy_list(%(c)s)"),    
     }
 
 DEVICE_FUNCTIONS = [ ("add",            ["t", "domid", "unit"]),
@@ -420,11 +420,8 @@ if __name__ == '__main__':
     # Do not generate these yet.
     blacklist = [
         "cpupoolinfo",
-        "domain_create_info",
-        "domain_build_info",
         "domain_config",
         "vcpuinfo",
-        "event",
         ]
 
     for t in blacklist:

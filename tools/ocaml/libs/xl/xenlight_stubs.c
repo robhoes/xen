@@ -224,7 +224,7 @@ static int Bitmap_val(caml_gc *gc, struct caml_logger *lg,
 	abort(); /* XXX */
 }
 
-static value Val_cpuid_policy_list(libxl_cpuid_policy_list *c_val)
+static value Val_cpuid_policy_list(libxl_cpuid_policy_list c_val)
 {
 	CAMLparam0();
 	/* An opaque pointer */
@@ -232,12 +232,13 @@ static value Val_cpuid_policy_list(libxl_cpuid_policy_list *c_val)
 }
 
 static int Cpuid_policy_list_val(caml_gc *gc, struct caml_logger *lg,
-				 libxl_cpuid_policy_list **c_val, value v)
+				 libxl_cpuid_policy_list *c_val, value v)
 {
 	CAMLparam1(v);
 
 	/* An opaque pointer */
-	*c_val = (libxl_cpuid_policy_list*)v;
+	*c_val = (libxl_cpuid_policy_list)v;
+
 	CAMLreturn(0);
 }
 
