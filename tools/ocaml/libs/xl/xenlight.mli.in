@@ -67,6 +67,9 @@ type ctx
 
 external list_domain: ctx -> Dominfo.t list = "stub_libxl_list_domain"
 
+external domain_shutdown : ctx -> domid -> unit = "stub_libxl_domain_shutdown"
+external domain_reboot : ctx -> domid -> unit = "stub_libxl_domain_reboot"
+
 external send_trigger : domid -> trigger -> int -> unit = "stub_xl_send_trigger"
 external send_sysrq : domid -> char -> unit = "stub_xl_send_sysrq"
 external send_debug_keys : ctx -> string -> unit = "stub_xl_send_debug_keys"
