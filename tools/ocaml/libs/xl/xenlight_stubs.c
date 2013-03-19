@@ -29,6 +29,8 @@
 #include <libxl.h>
 #include <libxl_utils.h>
 
+#define CTX ((libxl_ctx *)ctx)
+
 struct caml_logger {
 	struct xentoollog_logger logger;
 	int log_offset;
@@ -59,6 +61,8 @@ static void log_destroy(struct xentoollog_logger *logger)
 	lg.logger.vmessage = log_vmessage; \
 	lg.logger.destroy = log_destroy; \
 	lg.logger.progress = NULL; \
+	lg.log_offset = 0; \
+	memset(&lg.log_buf,0,sizeof(lg.log_buf));	\
 	caml_enter_blocking_section(); \
 	ret = libxl_ctx_alloc(&ctx, LIBXL_VERSION, 0, (struct xentoollog_logger *) &lg); \
 	if (ret != 0) \
@@ -77,7 +81,7 @@ static char * dup_String_val(caml_gc *gc, value s)
 	c = calloc(len + 1, sizeof(char));
 	if (!c)
 		caml_raise_out_of_memory();
-	gc->ptrs[gc->offset++] = c;
+	if (gc) gc->ptrs[gc->offset++] = c;
 	memcpy(c, String_val(s), len);
 	return c;
 }
@@ -94,7 +98,33 @@ static void failwith_xl(char *fname, struct caml_logger *lg)
 {
 	char *s;
 	s = (lg) ? lg->log_buf : fname;
+	printf("Error: %s\n", fname);
 	caml_raise_with_string(*caml_named_value("xl.error"), s);
+}
+
+CAMLprim value stub_libxl_ctx_alloc(value logger)
+{
+	CAMLparam1(logger);
+	libxl_ctx *ctx;
+	int ret;
+
+	caml_enter_blocking_section();
+	ret = libxl_ctx_alloc(&ctx, LIBXL_VERSION, 0, (struct xentoollog_logger *) logger);
+	if (ret != 0) \
+		failwith_xl("cannot init context", NULL);
+	caml_leave_blocking_section();
+	CAMLreturn((value)ctx);
+}
+
+CAMLprim value stub_libxl_ctx_free(value ctx)
+{
+	CAMLparam1(ctx);
+
+	caml_enter_blocking_section();
+	libxl_ctx_free(CTX);
+	caml_leave_blocking_section();
+
+	CAMLreturn(Val_unit);
 }
 
 static void * gc_calloc(caml_gc *gc, size_t nmemb, size_t size)
@@ -310,6 +340,39 @@ static value Val_hwcap(libxl_hwcap *c_val)
 }
 
 #include "_libxl_types.inc"
+
+value stub_libxl_list_domain(value ctx)
+{
+	CAMLparam1(ctx);
+	CAMLlocal2( cli, cons );
+	struct caml_gc gc;
+	libxl_dominfo *info;
+	int i, nr;
+
+	gc.offset = 0;
+	info = libxl_list_domain(CTX, &nr);
+	if (info == NULL)
+		failwith_xl("list_domain", NULL);
+
+	cli = Val_emptylist;
+
+	for (i = nr - 1; i >= 0; i--) {
+		cons = caml_alloc(2, 0);
+
+		/* Head */
+		Store_field(cons, 0, Val_dominfo(&gc, NULL, &info[i]));
+		/* Tail */
+		Store_field(cons, 1, cli);
+
+		cli = cons;
+	}
+
+	libxl_dominfo_list_free(info, nr);
+
+	gc_free(&gc);
+
+	CAMLreturn(cli);
+}
 
 value stub_xl_device_disk_add(value info, value domid)
 {
@@ -637,20 +700,20 @@ value stub_xl_send_sysrq(value domid, value sysrq)
 	CAMLreturn(Val_unit);
 }
 
-value stub_xl_send_debug_keys(value keys)
+value stub_xl_send_debug_keys(value ctx, value keys)
 {
-	CAMLparam1(keys);
+	CAMLparam2(ctx, keys);
 	int ret;
 	char *c_keys;
-	INIT_STRUCT();
 
-	c_keys = dup_String_val(&gc, keys);
+	c_keys = dup_String_val(NULL, keys);
 
-	INIT_CTX();
-	ret = libxl_send_debug_keys(ctx, c_keys);
+	ret = libxl_send_debug_keys(CTX, c_keys);
 	if (ret != 0)
-		failwith_xl("send_debug_keys", &lg);
-	FREE_CTX();
+		failwith_xl("send_debug_keys", NULL);
+
+	free(c_keys);
+
 	CAMLreturn(Val_unit);
 }
 
