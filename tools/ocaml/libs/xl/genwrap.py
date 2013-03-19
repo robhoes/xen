@@ -27,15 +27,20 @@ DEVICE_FUNCTIONS = [ ("add",            ["ctx", "?async:'a", "t", "domid", "unit
                      ("destroy",        ["ctx", "?async:'a", "t", "domid", "unit"]),
                    ]
 DEVICE_LIST =      [ ("list",           ["ctx", "domid", "t list"]),
-                     ("of_devid",       ["ctx", "domid", "int", "t"]),
                    ]
 
 functions = { # ( name , [type1,type2,....] )
     "device_vfb":     DEVICE_FUNCTIONS,
     "device_vkb":     DEVICE_FUNCTIONS,
     "device_disk":    DEVICE_FUNCTIONS,
-    "device_nic":     DEVICE_FUNCTIONS + DEVICE_LIST,
-    "device_pci":     DEVICE_FUNCTIONS,
+    "device_nic":     DEVICE_FUNCTIONS + DEVICE_LIST +
+                      [ ("of_devid",       ["ctx", "domid", "int", "t"]),
+                      ],
+    "device_pci":     DEVICE_FUNCTIONS + DEVICE_LIST +
+                      [ ("assignable_add",    ["ctx", "t", "bool", "unit"]),
+                        ("assignable_remove", ["ctx", "t", "bool", "unit"]),
+                        ("assignable_list",   ["ctx", "t list"]),
+                      ],
     "dominfo":        [ ("list",           ["ctx", "t list"]),
                         ("get",            ["ctx", "domid", "t"]),
                       ],
