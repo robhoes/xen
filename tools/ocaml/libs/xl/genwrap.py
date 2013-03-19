@@ -22,9 +22,9 @@ builtins = {
     "libxl_cpuid_policy_list": ("Cpuid_policy.t",      "Cpuid_policy_list_val(&%(c)s, %(o)s)",   "Val_cpuid_policy_list(%(c)s)"),    
     }
 
-DEVICE_FUNCTIONS = [ ("add",            ["handle", "t", "domid", "unit"]),
-                     ("remove",         ["handle", "t", "domid", "unit"]),
-                     ("destroy",        ["handle", "t", "domid", "unit"]),
+DEVICE_FUNCTIONS = [ ("add",            ["ctx", "t", "domid", "unit"]),
+                     ("remove",         ["ctx", "t", "domid", "unit"]),
+                     ("destroy",        ["ctx", "t", "domid", "unit"]),
                    ]
 
 functions = { # ( name , [type1,type2,....] )
@@ -33,13 +33,13 @@ functions = { # ( name , [type1,type2,....] )
     "device_disk":    DEVICE_FUNCTIONS,
     "device_nic":     DEVICE_FUNCTIONS,
     "device_pci":     DEVICE_FUNCTIONS,
-    "physinfo":       [ ("get",            ["handle", "t"]),
+    "physinfo":       [ ("get",            ["ctx", "t"]),
                       ],
-    "cputopology":    [ ("get",            ["handle", "t array"]),
+    "cputopology":    [ ("get",            ["ctx", "t array"]),
                       ],
     "domain_sched_params":
-                      [ ("get",            ["handle", "domid", "t"]),
-                        ("set",            ["handle", "domid", "t", "unit"]),
+                      [ ("get",            ["ctx", "domid", "t"]),
+                        ("set",            ["ctx", "domid", "t", "unit"]),
                       ],
 }
 def stub_fn_name(ty, name):
