@@ -351,6 +351,101 @@ value stub_libxl_list_domain(value ctx)
 	CAMLreturn(cli);
 }
 
+static int domain_wait_event(libxl_ctx *ctx, int domid, libxl_event **event_r)
+{
+	int ret;
+	for (;;) {
+		ret = libxl_event_wait(ctx, event_r, LIBXL_EVENTMASK_ALL, 0,0);
+		if (ret) {
+			return ret;
+		}
+		if ((*event_r)->domid != domid) {
+			char *evstr = libxl_event_to_json(CTX, *event_r);
+			free(evstr);
+			libxl_event_free(CTX, *event_r);
+			continue;
+		}
+		return ret;
+	}
+}
+
+value stub_xl_domain_create_new(value ctx, value domain_config)
+{
+	CAMLparam2(ctx, domain_config);
+	int ret;
+	libxl_domain_config c_dconfig;
+	uint32_t c_domid;
+
+	libxl_domain_config_init(&c_dconfig);
+	ret = domain_config_val(CTX, &c_dconfig, domain_config);
+	if (ret != 0)
+		failwith_xl(ret, "domain_create_new");
+
+	fprintf(stderr, "domain_create_new 2\n");
+	ret = libxl_domain_create_new(CTX, &c_dconfig, &c_domid, NULL, NULL);
+	if (ret != 0)
+		failwith_xl(ret, "domain_create_new");
+
+	fprintf(stderr, "domain_create_new 3\n");
+	libxl_domain_config_dispose(&c_dconfig);
+
+	CAMLreturn(Val_int(c_domid));
+}
+
+value stub_xl_domain_create_restore(value ctx, value domain_config, value restore_fd)
+{
+	CAMLparam2(ctx, domain_config);
+	int ret;
+	libxl_domain_config c_dconfig;
+	uint32_t c_domid;
+
+	ret = domain_config_val(CTX, &c_dconfig, domain_config);
+	if (ret != 0)
+		failwith_xl(ret, "domain_create_new");
+
+	ret = libxl_domain_create_restore(CTX, &c_dconfig, &c_domid, Int_val(restore_fd), NULL, NULL);
+	if (ret != 0)
+		failwith_xl(ret, "domain_create_new");
+
+	libxl_domain_config_dispose(&c_dconfig);
+
+	CAMLreturn(Val_int(c_domid));
+}
+
+value stub_libxl_domain_wait_shutdown(value ctx, value domid)
+{
+	CAMLparam2(ctx, domid);
+	int ret;
+	libxl_event *event;
+	libxl_evgen_domain_death *deathw;
+	ret = libxl_evenable_domain_death(CTX, Int_val(domid), 0, &deathw);
+	if (ret) {
+		fprintf(stderr,"wait for death failed (evgen, rc=%d)\n",ret);
+		exit(-1);
+	}
+
+	for (;;) {
+		ret = domain_wait_event(CTX, Int_val(domid), &event);
+		if (ret)
+			failwith_xl(ret, "domain_shutdown");
+
+		switch (event->type) {
+		case LIBXL_EVENT_TYPE_DOMAIN_DEATH:
+			goto done;
+		case LIBXL_EVENT_TYPE_DOMAIN_SHUTDOWN:
+			goto done;
+		default:
+			break;
+		}
+		libxl_event_free(CTX, event);
+	}
+done:
+	libxl_event_free(CTX, event);
+	libxl_evdisable_domain_death(CTX, deathw);
+
+	CAMLreturn(Val_unit);
+}
+
 value stub_libxl_domain_shutdown(value ctx, value domid)
 {
 	CAMLparam2(ctx, domid);
@@ -373,6 +468,32 @@ value stub_libxl_domain_reboot(value ctx, value domid)
 
 	if (ret != 0)
 		failwith_xl(ret, "domain_reboot");
+
+	CAMLreturn(Val_unit);
+}
+
+value stub_libxl_domain_destroy(value ctx, value domid)
+{
+	CAMLparam2(ctx, domid);
+	int ret;
+
+	ret = libxl_domain_destroy(CTX, Int_val(domid), 0);
+
+	if (ret != 0)
+		failwith_xl(ret, "domain_destroy");
+
+	CAMLreturn(Val_unit);
+}
+
+value stub_libxl_domain_suspend(value ctx, value domid, value fd)
+{
+	CAMLparam3(ctx, domid, fd);
+	int ret;
+
+	ret = libxl_domain_suspend(CTX, Int_val(domid), Int_val(fd), 0, 0);
+
+	if (ret != 0)
+		failwith_xl(ret, "domain_suspend");
 
 	CAMLreturn(Val_unit);
 }
