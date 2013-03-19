@@ -380,6 +380,34 @@ DEVICE_ADDREMOVE(vfb)
 DEVICE_ADDREMOVE(vkb)
 DEVICE_ADDREMOVE(pci)
 
+value stub_xl_device_nic_list(value ctx, value domid)
+{
+	CAMLparam2(ctx, domid);
+	CAMLlocal2(list, temp);
+	libxl_device_nic *c_list;
+	int i, nb;
+	uint32_t c_domid;
+
+	c_domid = Int_val(domid);
+
+	c_list = libxl_device_nic_list(CTX, c_domid, &nb);
+	if (!c_list && nb > 0)
+		failwith_xl(ERROR_FAIL, "nic_list");
+
+	list = temp = Val_emptylist;
+	for (i = 0; i < nb; i++) {
+		list = caml_alloc_small(2, Tag_cons);
+		Field(list, 0) = Val_int(0);
+		Field(list, 1) = temp;
+		temp = list;
+		Store_field(list, 0, Val_device_nic(&c_list[i]));
+		libxl_device_nic_dispose(&c_list[i]);
+	}
+	free(c_list);
+
+	CAMLreturn(list);
+}
+
 value stub_xl_physinfo_get(value ctx)
 {
 	CAMLparam1(ctx);
