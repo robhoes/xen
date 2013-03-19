@@ -15,7 +15,32 @@
 
 open Xentoollog
 
-exception Error of string
+type error = 
+    Nonspecific |
+    Version |
+    Fail |
+    Ni |
+    Nomem |
+    Inval |
+    Badfail |
+    Guest_Timedout |
+    Timedout |
+    Noparavirt |
+    Not_Ready |
+    Osevent_Reg_Fail |
+    Bufferfull |
+    Unknown_Child
+
+val string_of_error: error -> string
+
+exception Error of (error * string)
+
+type ctx
+
+external ctx_alloc: Xentoollog.handle -> ctx = "stub_libxl_ctx_alloc"
+external ctx_free: ctx -> unit = "stub_libxl_ctx_free"
+
+external test_raise_exception: unit = "stub_raise_exception"
 
 type domid = int
 type devid = int
@@ -23,9 +48,6 @@ type devid = int
 (* @@LIBXL_TYPES@@ *)
 
 type ctx
-
-external ctx_alloc: Xentoollog.handle -> ctx = "stub_libxl_ctx_alloc"
-external ctx_free: ctx -> unit = "stub_libxl_ctx_free"
 
 external list_domain: ctx -> Dominfo.t list = "stub_libxl_list_domain"
 

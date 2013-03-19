@@ -19,8 +19,11 @@ let print_dominfo dominfo =
 let _ = 
   let logger = Xentoollog.create_stdio_logger (*~level:Xentoollog.Debug*) () in
   let ctx = Xenlight.ctx_alloc logger in
-  let domains = Xenlight.list_domain ctx in
-  List.iter (fun d -> print_dominfo d) domains;
-  Xenlight.ctx_free ctx;
-  Xentoollog.destroy logger;
-
+  try
+    let domains = Xenlight.list_domain ctx in
+    List.iter (fun d -> print_dominfo d) domains;
+    Xenlight.ctx_free ctx;
+    Xentoollog.destroy logger;
+  with Xenlight.Error(err, fn) -> begin
+    printf "Caught Exception: %s: %s\n" (Xenlight.string_of_error err) fn;
+  end

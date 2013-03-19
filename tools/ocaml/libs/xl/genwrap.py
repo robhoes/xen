@@ -228,7 +228,7 @@ def c_val(ty, c, o, indent="", parent = None):
         for e in ty.values:
             s += "    case %d: *%s = %s; break;\n" % (n, c, e.name)
             n += 1
-        s += "    default: failwith_xl(\"cannot convert value to %s\"); break;\n" % ty.typename
+        s += "    default: failwith_xl(ERROR_FAIL, \"cannot convert value to %s\"); break;\n" % ty.typename
         s += "}"
     elif isinstance(ty, idl.KeyedUnion):
         s += "{\n"
@@ -241,7 +241,7 @@ def c_val(ty, c, o, indent="", parent = None):
                                                     parent + ty.keyvar.name,
                                                     f.enumname)
             n += 1
-        s += "\t\t    default: failwith_xl(\"variant handling bug %s%s (long)\"); break;\n" % (parent, ty.keyvar.name)        
+        s += "\t\t    default: failwith_xl(ERROR_FAIL, \"variant handling bug %s%s (long)\"); break;\n" % (parent, ty.keyvar.name)        
         s += "\t\t}\n"
         s += "\t} else {\n"
         s += "\t\t/* Is block... */\n"
@@ -257,7 +257,7 @@ def c_val(ty, c, o, indent="", parent = None):
                 s += "%s" % c_val(f.type, fexpr, o, indent=indent+"\t\t        ")
                 s += "break;\n"
             n += 1
-        s += "\t\t    default: failwith_xl(\"variant handling bug %s%s (block)\"); break;\n" % (parent, ty.keyvar.name)
+        s += "\t\t    default: failwith_xl(ERROR_FAIL, \"variant handling bug %s%s (block)\"); break;\n" % (parent, ty.keyvar.name)
         s += "\t\t}\n"
         s += "\t}\n"
         s += "}"
@@ -326,7 +326,7 @@ def ocaml_Val(ty, o, c, indent="", parent = None, struct_tag = None):
         for e in ty.values:
             s += "    case %s: %s = Int_val(%d); break;\n" % (e.name, o, n)
             n += 1
-        s += "    default: failwith_xl(\"cannot convert value from %s\"); break;\n" % ty.typename
+        s += "    default: failwith_xl(ERROR_FAIL, \"cannot convert value from %s\"); break;\n" % ty.typename
         s += "}"
     elif isinstance(ty, idl.KeyedUnion):
         n = 0
@@ -347,7 +347,7 @@ def ocaml_Val(ty, o, c, indent="", parent = None, struct_tag = None):
                 #s += "\t        %s = caml_alloc(%d,%d);\n" % (o,len(f.type.fields),n)
             s += "\t        break;\n"
             n += 1
-        s += "\t    default: failwith_xl(\"cannot convert value from %s\"); break;\n" % ty.typename
+        s += "\t    default: failwith_xl(ERROR_FAIL, \"cannot convert value from %s\"); break;\n" % ty.typename
         s += "\t}"
     elif isinstance(ty,idl.Aggregate) and (parent is None or ty.rawname is None):
         s += "{\n"
