@@ -347,6 +347,15 @@ value stub_libxl_list_domain(value ctx)
 	CAMLreturn(cli);
 }
 
+
+value stub_xl_device_nic_of_devid(value ctx, value domid, value devid)
+{
+	CAMLparam3(ctx, domid, devid);
+	libxl_device_nic nic;
+	libxl_devid_to_device_nic(CTX, Int_val(domid), Int_val(devid), &nic);
+	CAMLreturn(Val_device_nic(&nic));
+}
+
 #define _STRINGIFY(x) #x
 #define STRINGIFY(x) _STRINGIFY(x)
 

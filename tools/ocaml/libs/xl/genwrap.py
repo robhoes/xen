@@ -26,7 +26,9 @@ DEVICE_FUNCTIONS = [ ("add",            ["ctx", "t", "domid", "unit"]),
                      ("remove",         ["ctx", "t", "domid", "unit"]),
                      ("destroy",        ["ctx", "t", "domid", "unit"]),
                    ]
-DEVICE_LIST =      [ ("list",           ["ctx", "domid", "t list"]) ]
+DEVICE_LIST =      [ ("list",           ["ctx", "domid", "t list"]),
+                     ("of_devid",       ["ctx", "domid", "int", "t"]),
+                   ]
 
 functions = { # ( name , [type1,type2,....] )
     "device_vfb":     DEVICE_FUNCTIONS,
