@@ -451,6 +451,21 @@ value stub_xl_dominfo_list(value ctx)
 	CAMLreturn(domlist);
 }
 
+value stub_xl_dominfo_get(value ctx, value domid)
+{
+	CAMLparam2(ctx, domid);
+	CAMLlocal1(dominfo);
+	libxl_dominfo c_dominfo;
+	int ret;
+
+	ret = libxl_domain_info(CTX, &c_dominfo, Int_val(domid));
+	if (ret != 0)
+		failwith_xl(ERROR_FAIL, "domain_info");
+	dominfo = Val_dominfo(&c_dominfo);
+
+	CAMLreturn(dominfo);
+}
+
 value stub_xl_domain_sched_params_get(value ctx, value domid)
 {
 	CAMLparam2(ctx, domid);

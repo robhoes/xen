@@ -34,6 +34,7 @@ functions = { # ( name , [type1,type2,....] )
     "device_nic":     DEVICE_FUNCTIONS,
     "device_pci":     DEVICE_FUNCTIONS,
     "dominfo":        [ ("list",           ["ctx", "t list"]),
+                        ("get",            ["ctx", "domid", "t"]),
                       ],
     "physinfo":       [ ("get",            ["ctx", "t"]),
                       ],
