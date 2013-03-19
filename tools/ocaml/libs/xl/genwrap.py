@@ -375,14 +375,14 @@ def ocaml_Val(ty, o, c, indent="", parent = None, struct_tag = None):
             n = n + 1
         s += "}"
     else:
-        s += "%s = Val_%s(ctx, %s);" % (o, ty.rawname, ty.pass_arg(c, parent is None))
+        s += "%s = Val_%s(%s);" % (o, ty.rawname, ty.pass_arg(c, parent is None))
     
     return s.replace("\n", "\n%s" % indent).rstrip(indent)
 
 def gen_Val_ocaml(ty, indent=""):
     s = "/* Convert %s to a caml value */\n" % ty.rawname
 
-    s += "static value Val_%s (libxl_ctx *ctx, %s)\n" % (ty.rawname, ty.make_arg(ty.rawname+"_c"))
+    s += "static value Val_%s (%s)\n" % (ty.rawname, ty.make_arg(ty.rawname+"_c"))
     s += "{\n"
     s += "\tCAMLparam0();\n"
     s += "\tCAMLlocal1(%s_ocaml);\n" % ty.rawname

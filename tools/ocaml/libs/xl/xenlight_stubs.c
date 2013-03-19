@@ -339,7 +339,7 @@ value stub_libxl_list_domain(value ctx)
 		cons = caml_alloc(2, 0);
 
 		/* Head */
-		Store_field(cons, 0, Val_dominfo(CTX, &info[i]));
+		Store_field(cons, 0, Val_dominfo(&info[i]));
 		/* Tail */
 		Store_field(cons, 1, cli);
 
@@ -396,7 +396,7 @@ value stub_xl_physinfo_get(value ctx)
 	if (ret != 0)
 		failwith_xl(ret, "get_physinfo");
 
-	physinfo = Val_physinfo(CTX, &c_physinfo);
+	physinfo = Val_physinfo(&c_physinfo);
 
 	libxl_physinfo_dispose(&c_physinfo);
 
@@ -418,7 +418,7 @@ value stub_xl_cputopology_get(value ctx)
 	topology = caml_alloc_tuple(nr);
 	for (i = 0; i < nr; i++) {
 		if (c_topology[i].core != LIBXL_CPUTOPOLOGY_INVALID_ENTRY)
-			v = Val_some(Val_cputopology(CTX, &c_topology[i]));
+			v = Val_some(Val_cputopology(&c_topology[i]));
 		else
 			v = Val_none;
 		Store_field(topology, i, v);
@@ -440,7 +440,7 @@ value stub_xl_domain_sched_params_get(value ctx, value domid)
 	if (ret != 0)
 		failwith_xl(ret, "domain_sched_params_get");
 
-	scinfo = Val_domain_sched_params(CTX, &c_scinfo);
+	scinfo = Val_domain_sched_params(&c_scinfo);
 
 	libxl_domain_sched_params_dispose(&c_scinfo);
 
