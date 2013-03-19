@@ -234,6 +234,7 @@ def c_val(ty, c, o, indent="", parent = None):
         s += "{\n"
         s += "\tint i;\n"
         s += "\t%s = Wosize_val(%s);\n" % (parent + ty.lenvar.name, o)
+        s += "\t%s = (%s) calloc(%s, sizeof(*%s));\n" % (c, ty.typename, parent + ty.lenvar.name, c)
         s += "\tfor(i=0; i<%s; i++) {\n" % (parent + ty.lenvar.name)
         s += c_val(ty.elem_type, c+"[i]", "Field(%s, i)" % o, indent="\t\t", parent=parent) + "\n"
         s += "\t}\n"
