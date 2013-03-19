@@ -399,12 +399,10 @@ value stub_xl_domain_create_new(value ctx, value domain_config)
 	if (ret != 0)
 		failwith_xl(ret, "domain_create_new");
 
-	fprintf(stderr, "domain_create_new 2\n");
 	ret = libxl_domain_create_new(CTX, &c_dconfig, &c_domid, NULL, NULL);
 	if (ret != 0)
 		failwith_xl(ret, "domain_create_new");
 
-	fprintf(stderr, "domain_create_new 3\n");
 	libxl_domain_config_dispose(&c_dconfig);
 
 	CAMLreturn(Val_int(c_domid));
@@ -419,11 +417,11 @@ value stub_xl_domain_create_restore(value ctx, value domain_config, value restor
 
 	ret = domain_config_val(CTX, &c_dconfig, domain_config);
 	if (ret != 0)
-		failwith_xl(ret, "domain_create_new");
+		failwith_xl(ret, "domain_create_restore");
 
 	ret = libxl_domain_create_restore(CTX, &c_dconfig, &c_domid, Int_val(restore_fd), NULL, NULL);
 	if (ret != 0)
-		failwith_xl(ret, "domain_create_new");
+		failwith_xl(ret, "domain_create_restore");
 
 	libxl_domain_config_dispose(&c_dconfig);
 
