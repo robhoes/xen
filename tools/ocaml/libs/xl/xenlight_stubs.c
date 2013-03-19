@@ -512,6 +512,33 @@ value stub_xl_send_debug_keys(value ctx, value keys)
 	CAMLreturn(Val_unit);
 }
 
+value stub_xl_xen_console_read(value ctx)
+{
+	CAMLparam1(ctx);
+	CAMLlocal3(list, cons, ml_line);
+	int i = 0, ret;
+	char *console[32768], *line;
+	libxl_xen_console_reader *cr;
+
+	cr = libxl_xen_console_read_start(CTX, 0);
+	if (cr)
+		for (i = 0; libxl_xen_console_read_line(CTX, cr, &line) > 0; i++)
+			console[i] = strdup(line);
+	libxl_xen_console_read_finish(CTX, cr);
+
+	list = Val_emptylist;
+	for (; i > 0; i--) {
+		ml_line = caml_copy_string(console[i - 1]);
+		free(console[i - 1]);
+		cons = caml_alloc(2, 0);
+		Store_field(cons, 0, ml_line);  // head
+		Store_field(cons, 1, list);     // tail
+		list = cons;
+	}
+
+	CAMLreturn(list);
+}
+
 /*
  * Local variables:
  *  indent-tabs-mode: t
