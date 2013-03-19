@@ -18,6 +18,10 @@ exception Error of string
 type domid = int
 type devid = int
 
+module Cpuid_policy = struct
+	type t
+end
+
 (* @@LIBXL_TYPES@@ *)
 
 external send_trigger : domid -> trigger -> int -> unit = "stub_xl_send_trigger"

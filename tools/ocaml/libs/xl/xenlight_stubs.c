@@ -27,6 +27,7 @@
 #include <string.h>
 
 #include <libxl.h>
+#include <libxl_utils.h>
 
 struct caml_logger {
 	struct xentoollog_logger logger;
@@ -96,7 +97,6 @@ static void failwith_xl(char *fname, struct caml_logger *lg)
 	caml_raise_with_string(*caml_named_value("xl.error"), s);
 }
 
-#if 0 /* TODO: wrap libxl_domain_create(), these functions will be needed then */
 static void * gc_calloc(caml_gc *gc, size_t nmemb, size_t size)
 {
 	void *ptr;
@@ -107,28 +107,62 @@ static void * gc_calloc(caml_gc *gc, size_t nmemb, size_t size)
 	return ptr;
 }
 
-static int string_string_tuple_array_val (caml_gc *gc, char ***c_val, value v)
+static int list_len(value v)
+{
+	int len = 0;
+	while ( v != Val_emptylist ) {
+		len++;
+		v = Field(v, 1);
+	}
+	return len;
+}
+
+static int libxl_key_value_list_val(caml_gc *gc, struct caml_logger *lg,
+				    libxl_key_value_list *c_val,
+				    value v)
 {
 	CAMLparam1(v);
-	CAMLlocal1(a);
-	int i;
-	char **array;
+	CAMLlocal1(elem);
+	int nr, i;
+	libxl_key_value_list array;
 
-	for (i = 0, a = Field(v, 5); a != Val_emptylist; a = Field(a, 1)) { i++; }
+	nr = list_len(v);
 
-	array = gc_calloc(gc, (i + 1) * 2, sizeof(char *));
+	array = gc_calloc(gc, (nr + 1) * 2, sizeof(char *));
 	if (!array)
-		return 1;
-	for (i = 0, a = Field(v, 5); a != Val_emptylist; a = Field(a, 1), i++) {
-		value b = Field(a, 0);
-		array[i * 2] = dup_String_val(gc, Field(b, 0));
-		array[i * 2 + 1] = dup_String_val(gc, Field(b, 1));
+		caml_raise_out_of_memory();
+
+	for (i=0; v != Val_emptylist; i++, v = Field(v, 1) ) {
+		elem = Field(v, 0);
+
+		array[i * 2] = dup_String_val(gc, Field(elem, 0));
+		array[i * 2 + 1] = dup_String_val(gc, Field(elem, 1));
 	}
+
 	*c_val = array;
 	CAMLreturn(0);
 }
 
-#endif
+static int libxl_string_list_val(caml_gc *gc, struct caml_logger *lg,
+				 libxl_string_list *c_val,
+				 value v)
+{
+	CAMLparam1(v);
+	int nr, i;
+	libxl_key_value_list array;
+
+	nr = list_len(v);
+
+	array = gc_calloc(gc, (nr + 1), sizeof(char *));
+	if (!array)
+		caml_raise_out_of_memory();
+
+	for (i=0; v != Val_emptylist; i++, v = Field(v, 1) )
+		array[i] = dup_String_val(gc, Field(v, 0));
+
+	*c_val = array;
+	CAMLreturn(0);
+}
 
 /* Option type support as per http://www.linux-nantes.org/~fmonnier/ocaml/ocaml-wrapping-c.php */
 #define Val_none Val_int(0)
@@ -165,6 +199,45 @@ static int Mac_val(caml_gc *gc, struct caml_logger *lg, libxl_mac *c_val, value 
 	for(i=0; i<6; i++)
 		(*c_val)[i] = Int_val(Field(v, i));
 
+	CAMLreturn(0);
+}
+
+static value Val_bitmap (libxl_bitmap *c_val)
+{
+	CAMLparam0();
+	CAMLlocal1(v);
+	int i;
+
+	v = caml_alloc(8 * (c_val->size), 0);
+	libxl_for_each_bit(i, *c_val) {
+		if (libxl_bitmap_test(c_val, i))
+			Store_field(v, i, Val_true);
+		else
+			Store_field(v, i, Val_false);
+	}
+	CAMLreturn(v);
+}
+
+static int Bitmap_val(caml_gc *gc, struct caml_logger *lg,
+		      libxl_bitmap *c_val, value v)
+{
+	abort(); /* XXX */
+}
+
+static value Val_cpuid_policy_list(libxl_cpuid_policy_list *c_val)
+{
+	CAMLparam0();
+	/* An opaque pointer */
+	CAMLreturn((value)c_val);
+}
+
+static int Cpuid_policy_list_val(caml_gc *gc, struct caml_logger *lg,
+				 libxl_cpuid_policy_list **c_val, value v)
+{
+	CAMLparam1(v);
+
+	/* An opaque pointer */
+	*c_val = (libxl_cpuid_policy_list*)v;
 	CAMLreturn(0);
 }
 
