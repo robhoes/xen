@@ -25,6 +25,8 @@ type level = Debug
 
 val level_to_string : level -> string
 
+val compare_level : level -> level -> int
+
 type handle
 
 (** call back arguments. See xentoollog.h for more info.

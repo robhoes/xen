@@ -51,6 +51,9 @@ let level_to_prio level =
   | Error -> 7
   | Critical -> 8
 
+let compare_level x y =
+	compare (level_to_prio x) (level_to_prio y)
+
 type handle
 
 type logger_cbs = {
@@ -75,11 +78,10 @@ let create name cbs : handle =
 
 
 let stdio_vmessage min_level level errno ctx msg =
-  let level_int = level_to_prio level 
-  and level_str = level_to_string level
+  let level_str = level_to_string level
   and errno_str = match errno with None -> "" | Some s -> sprintf ": errno=%d" s
   and ctx_str = match ctx with None -> "" | Some s -> sprintf ": %s" s in
-  if min_level <= level_int then begin
+  if compare min_level level <= 0 then begin
     printf "%s%s%s: %s\n" level_str ctx_str errno_str msg;
     flush stdout;  
   end;
@@ -92,9 +94,8 @@ let stdio_progress ctx what percent dne total =
   ()
     
 let create_stdio_logger ?(level=Info) () =
-  let level_int = level_to_prio level in
   let cbs = {
-    vmessage = stdio_vmessage level_int;
+    vmessage = stdio_vmessage level;
     progress = stdio_progress; } in
   create "Xentoollog.stdio_logger" cbs
 
