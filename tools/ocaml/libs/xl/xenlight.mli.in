@@ -40,10 +40,16 @@ type ctx
 external ctx_alloc: Xentoollog.handle -> ctx = "stub_libxl_ctx_alloc"
 external ctx_free: ctx -> unit = "stub_libxl_ctx_free"
 
-external test_raise_exception: unit = "stub_raise_exception"
+val with_ctx : ?logger:handle -> (ctx -> 'a) -> 'a
+
+external test_raise_exception: unit -> unit = "stub_raise_exception"
 
 type domid = int
 type devid = int
+
+module Cpuid_policy : sig
+	type t
+end
 
 (* @@LIBXL_TYPES@@ *)
 
@@ -55,3 +61,5 @@ external send_trigger : domid -> trigger -> int -> unit = "stub_xl_send_trigger"
 external send_sysrq : domid -> char -> unit = "stub_xl_send_sysrq"
 external send_debug_keys : ctx -> string -> unit = "stub_xl_send_debug_keys"
 external xen_console_read : ctx -> string list = "stub_xl_xen_console_read"
+
+val event_loop : ctx -> unit
