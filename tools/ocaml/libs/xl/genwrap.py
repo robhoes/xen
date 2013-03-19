@@ -270,7 +270,7 @@ def c_val(ty, c, o, indent="", parent = None):
                 s += "\t\t    case %d:\n" % (n)
                 s += "\t\t        %s = %s;\n" % (parent + ty.keyvar.name, f.enumname)
                 (nparent,fexpr) = ty.member(c, f, False)
-                s += "%s" % c_val(f.type, fexpr, o, indent=indent+"\t\t        ")
+                s += "%s" % c_val(f.type, fexpr, "Field(%s, 0)" % o, indent=indent+"\t\t        ")
                 s += "break;\n"
                 n += 1
         s += "\t\t    default: failwith_xl(ERROR_FAIL, \"variant handling bug %s%s (block)\"); break;\n" % (parent, ty.keyvar.name)
