@@ -246,12 +246,10 @@ static value Val_uuid (libxl_uuid *c_val)
 	CAMLparam0();
 	CAMLlocal1(v);
 	uint8_t *uuid = libxl_uuid_bytearray(c_val);
-	int i;
+	char buf[LIBXL_UUID_FMTLEN+1];
 
-	v = caml_alloc_tuple(16);
-
-	for(i=0; i<16; i++)
-		Store_field(v, i, Val_int(uuid[i]));
+	sprintf(buf, LIBXL_UUID_FMT, LIBXL__UUID_BYTES(uuid));
+	v = caml_copy_string(buf);
 
 	CAMLreturn(v);
 }
@@ -260,10 +258,8 @@ static int Uuid_val(libxl_uuid *c_val, value v)
 {
 	CAMLparam1(v);
 	int i;
-	uint8_t *uuid = libxl_uuid_bytearray(c_val);
 
-	for(i=0; i<16; i++)
-		uuid[i] = Int_val(Field(v, i));
+	libxl_uuid_from_string(c_val, dup_String_val(v));
 
 	CAMLreturn(0);
 }
