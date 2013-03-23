@@ -12,7 +12,7 @@ builtins = {
     "libxl_domid":          ("domid",                  "%(c)s = Int_val(%(o)s)",            "Val_int(%(c)s)"  ),
     "libxl_devid":          ("devid",                  "%(c)s = Int_val(%(o)s)",            "Val_int(%(c)s)"  ),
     "libxl_defbool":        ("bool option",            "%(c)s = Defbool_val(%(o)s)",        "Val_defbool(%(c)s)" ),
-    "libxl_uuid":           ("int array",              "Uuid_val(&%(c)s, %(o)s)",   "Val_uuid(&%(c)s)"),
+    "libxl_uuid":           ("string",                 "Uuid_val(&%(c)s, %(o)s)",           "Val_uuid(&%(c)s)"),
     "libxl_bitmap":         ("bool array",             "Bitmap_val(ctx, &%(c)s, %(o)s)",   "Val_bitmap(&%(c)s)"),    
     "libxl_key_value_list": ("(string * string) list", "libxl_key_value_list_val(&%(c)s, %(o)s)", "Val_key_value_list(&%(c)s)"),
     "libxl_string_list":    ("string list",            "libxl_string_list_val(&%(c)s, %(o)s)", "Val_string_list(&%(c)s)"),
