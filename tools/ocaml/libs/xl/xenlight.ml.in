@@ -131,5 +131,6 @@ external event_register_callbacks : ctx -> 'a -> 'b = "stub_xl_event_register_ca
 (* event loop helper wrapping the poll syscall *)
 external poll : (Unix.file_descr * event list) list -> event list list = "stub_poll"
 
+(* this introduces a race condition on startup! *)
 let _ = Callback.register_exception "Xenlight.Error" (Error(Fail, ""))
 
