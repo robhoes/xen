@@ -73,6 +73,17 @@ external test_raise_exception: unit -> unit = "stub_raise_exception"
 type domid = int
 type devid = int
 
+(* type for event callbacks *)
+type for_libxl
+
+type event =
+	| POLLIN (* There is data to read *)
+	| POLLPRI (* There is urgent data to read *)
+	| POLLOUT (* Writing now will not block *)
+	| POLLERR (* Error condition (revents only) *)
+	| POLLHUP (* Device has been disconnected (revents only) *)
+	| POLLNVAL (* Invalid request: fd not open (revents only). *)
+
 (* @@LIBXL_TYPES@@ *)
 
 external send_trigger : ctx -> domid -> trigger -> int -> unit = "stub_xl_send_trigger"
@@ -80,4 +91,35 @@ external send_sysrq : ctx -> domid -> char -> unit = "stub_xl_send_sysrq"
 external send_debug_keys : ctx -> string -> unit = "stub_xl_send_debug_keys"
 external xen_console_read : ctx -> string list = "stub_xl_xen_console_read"
 
+(* Callbacks with the names as in the following must be registered before calling
+	osevent_register_hooks:
+
+	Callback.register "fd_register" fd_register;
+	Callback.register "fd_modify" fd_modify;
+	Callback.register "fd_deregister" fd_deregister;
+*)
+
+external osevent_register_hooks : ctx -> 'a -> 'b = "stub_xl_osevent_register_hooks"
+external osevent_occurred_fd : ctx -> for_libxl -> Unix.file_descr -> event list -> event list -> unit = "stub_xl_osevent_occurred_fd"
+external osevent_occurred_timeout : ctx -> for_libxl -> unit = "stub_xl_osevent_occurred_timeout"
+
+(* A callback with a name as in the following must be registered for async calls
+	to libxl functions to work:
+
+	Callback.register "xl_async_callback" xl_async_callback;
+*)
+
+(* Callbacks with the names as in the following must be registered before calling
+	event_register_callbacks:
+
+	Callback.register "xl_event_occurs_callback" xl_event_occurs_callback;
+	Callback.register "xl_event_disaster_callback" xl_event_disaster_callback;
+*)
+external evenable_domain_death : ctx -> domid -> int -> unit = "stub_xl_evenable_domain_death"
+external event_register_callbacks : ctx -> 'a -> 'b = "stub_xl_event_register_callbacks"
+
+(* event loop helper wrapping the poll syscall *)
+external poll : (Unix.file_descr * event list) list -> event list list = "stub_poll"
+
 let _ = Callback.register_exception "Xenlight.Error" (Error(Fail, ""))
+
