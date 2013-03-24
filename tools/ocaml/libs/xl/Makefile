@@ -10,6 +10,8 @@ OBJS = xenlight
 INTF = xenlight.cmi
 LIBS = xenlight.cma xenlight.cmxa
 
+OCAMLINCLUDE += -I ../xentoollog
+
 LIBS_xenlight = $(LDLIBS_libxenlight)
 
 xenlight_OBJS = $(OBJS)

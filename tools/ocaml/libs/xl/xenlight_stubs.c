@@ -29,6 +29,8 @@
 #include <libxl.h>
 #include <libxl_utils.h>
 
+#define CTX ((libxl_ctx *)ctx)
+
 struct caml_logger {
 	struct xentoollog_logger logger;
 	int log_offset;
@@ -59,6 +61,8 @@ static void log_destroy(struct xentoollog_logger *logger)
 	lg.logger.vmessage = log_vmessage; \
 	lg.logger.destroy = log_destroy; \
 	lg.logger.progress = NULL; \
+	lg.log_offset = 0; \
+	memset(&lg.log_buf,0,sizeof(lg.log_buf));	\
 	caml_enter_blocking_section(); \
 	ret = libxl_ctx_alloc(&ctx, LIBXL_VERSION, 0, (struct xentoollog_logger *) &lg); \
 	if (ret != 0) \
@@ -77,7 +81,7 @@ static char * dup_String_val(caml_gc *gc, value s)
 	c = calloc(len + 1, sizeof(char));
 	if (!c)
 		caml_raise_out_of_memory();
-	gc->ptrs[gc->offset++] = c;
+	if (gc) gc->ptrs[gc->offset++] = c;
 	memcpy(c, String_val(s), len);
 	return c;
 }
@@ -94,7 +98,27 @@ static void failwith_xl(char *fname, struct caml_logger *lg)
 {
 	char *s;
 	s = (lg) ? lg->log_buf : fname;
+	printf("Error: %s\n", fname);
 	caml_raise_with_string(*caml_named_value("xl.error"), s);
+}
+
+CAMLprim value stub_libxl_ctx_alloc(value logger)
+{
+	CAMLparam1(logger);
+	libxl_ctx *ctx;
+	int ret;
+
+	ret = libxl_ctx_alloc(&ctx, LIBXL_VERSION, 0, (struct xentoollog_logger *) logger);
+	if (ret != 0) \
+		failwith_xl("cannot init context", NULL);
+	CAMLreturn((value)ctx);
+}
+
+CAMLprim value stub_libxl_ctx_free(value ctx)
+{
+	CAMLparam1(ctx);
+	libxl_ctx_free(CTX);
+	CAMLreturn(Val_unit);
 }
 
 static void * gc_calloc(caml_gc *gc, size_t nmemb, size_t size)
