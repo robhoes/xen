@@ -13,17 +13,37 @@
  * GNU Lesser General Public License for more details.
  *)
 
-exception Error of string
+type error = 
+    Nonspecific |
+    Version |
+    Fail |
+    Ni |
+    Nomem |
+    Inval |
+    Badfail |
+    Guest_Timedout |
+    Timedout |
+    Noparavirt |
+    Not_Ready |
+    Osevent_Reg_Fail |
+    Bufferfull |
+    Unknown_Child
 
-type domid = int
-type devid = int
+val string_of_error: error -> string
 
-(* @@LIBXL_TYPES@@ *)
+exception Error of (error * string)
 
 type ctx
 
 external ctx_alloc: Xentoollog.handle -> ctx = "stub_libxl_ctx_alloc"
 external ctx_free: ctx -> unit = "stub_libxl_ctx_free"
+
+external test_raise_exception: unit = "stub_raise_exception"
+
+type domid = int
+type devid = int
+
+(* @@LIBXL_TYPES@@ *)
 
 external send_trigger : ctx -> domid -> trigger -> int -> unit = "stub_xl_send_trigger"
 external send_sysrq : ctx -> domid -> char -> unit = "stub_xl_send_sysrq"
