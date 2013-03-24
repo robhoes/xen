@@ -395,7 +395,7 @@ void async_callback(libxl_ctx *ctx, int rc, void *for_callback)
 #define _STRINGIFY(x) #x
 #define STRINGIFY(x) _STRINGIFY(x)
 
-#define _DEVICE_ADDREMOVE(type,op)					\
+#define _DEVICE_ADDREMOVE(type,fn,op)					\
 value stub_xl_device_##type##_##op(value ctx, value info, value domid,	\
 	value async, value unit)					\
 {									\
@@ -411,7 +411,7 @@ value stub_xl_device_##type##_##op(value ctx, value info, value domid,	\
 		ao_how.u.for_callback = (void *) Some_val(async);	\
 	}								\
 									\
-	ret = libxl_device_##type##_##op(CTX, Int_val(domid), &c_info,	\
+	ret = libxl_##fn##_##op(CTX, Int_val(domid), &c_info,		\
 		async != Val_none ? &ao_how : NULL);			\
 									\
 	libxl_device_##type##_dispose(&c_info);				\
@@ -423,15 +423,16 @@ value stub_xl_device_##type##_##op(value ctx, value info, value domid,	\
 }
 
 #define DEVICE_ADDREMOVE(type) \
-	_DEVICE_ADDREMOVE(type, add) \
- 	_DEVICE_ADDREMOVE(type, remove) \
- 	_DEVICE_ADDREMOVE(type, destroy)
+	_DEVICE_ADDREMOVE(type, device_##type, add) \
+ 	_DEVICE_ADDREMOVE(type, device_##type, remove) \
+ 	_DEVICE_ADDREMOVE(type, device_##type, destroy)
 
 DEVICE_ADDREMOVE(disk)
 DEVICE_ADDREMOVE(nic)
 DEVICE_ADDREMOVE(vfb)
 DEVICE_ADDREMOVE(vkb)
 DEVICE_ADDREMOVE(pci)
+_DEVICE_ADDREMOVE(disk, cdrom, insert)
 
 value stub_xl_device_nic_of_devid(value ctx, value domid, value devid)
 {
@@ -467,6 +468,42 @@ value stub_xl_device_nic_list(value ctx, value domid)
 	free(c_list);
 
 	CAMLreturn(list);
+}
+
+value stub_xl_device_disk_list(value ctx, value domid)
+{
+	CAMLparam2(ctx, domid);
+	CAMLlocal2(list, temp);
+	libxl_device_disk *c_list;
+	int i, nb;
+	uint32_t c_domid;
+
+	c_domid = Int_val(domid);
+
+	c_list = libxl_device_disk_list(CTX, c_domid, &nb);
+	if (!c_list)
+		failwith_xl(ERROR_FAIL, "disk_list");
+
+	list = temp = Val_emptylist;
+	for (i = 0; i < nb; i++) {
+		list = caml_alloc_small(2, Tag_cons);
+		Field(list, 0) = Val_int(0);
+		Field(list, 1) = temp;
+		temp = list;
+		Store_field(list, 0, Val_device_disk(&c_list[i]));
+		libxl_device_disk_dispose(&c_list[i]);
+	}
+	free(c_list);
+
+	CAMLreturn(list);
+}
+
+value stub_xl_device_disk_of_vdev(value ctx, value domid, value vdev)
+{
+	CAMLparam3(ctx, domid, vdev);
+	libxl_device_disk disk;
+	libxl_vdev_to_device_disk(CTX, Int_val(domid), String_val(vdev), &disk);
+	CAMLreturn(Val_device_disk(&disk));
 }
 
 value stub_xl_device_pci_list(value ctx, value domid)
