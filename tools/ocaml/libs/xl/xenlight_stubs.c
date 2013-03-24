@@ -338,17 +338,30 @@ void async_callback(libxl_ctx *ctx, int rc, void *for_callback)
 #define STRINGIFY(x) _STRINGIFY(x)
 
 #define _DEVICE_ADDREMOVE(type,op)					\
-value stub_xl_device_##type##_##op(value ctx, value info, value domid)	\
+value stub_xl_device_##type##_##op(value ctx, value async, value info,	\
+	value domid)							\
 {									\
-	CAMLparam3(ctx, info, domid);					\
+	CAMLparam4(ctx, info, domid, async);				\
 	libxl_device_##type c_info;					\
 	int ret, marker_var;						\
+	libxl_asyncop_how *ao_how;					\
 									\
 	device_##type##_val(CTX, &c_info, info);			\
 									\
-	ret = libxl_device_##type##_##op(CTX, Int_val(domid), &c_info, 0); \
+	if (async != Val_none) {					\
+		ao_how = malloc(sizeof(*ao_how));			\
+		ao_how->callback = async_callback;			\
+		ao_how->u.for_callback = (void *) Some_val(async);	\
+	}								\
+	else								\
+		ao_how = NULL;						\
+									\
+	ret = libxl_device_##type##_##op(CTX, Int_val(domid), &c_info,	\
+		ao_how);						\
 									\
 	libxl_device_##type##_dispose(&c_info);				\
+	if (ao_how)							\
+		free(ao_how);						\
 									\
 	if (ret != 0)							\
 		failwith_xl(ret, STRINGIFY(type) "_" STRINGIFY(op));	\
