@@ -402,7 +402,8 @@ tools/ocaml/libs/xl/xenlight.ml
 tools/ocaml/libs/xl/xenlight.mli
 tools/ocaml/xenstored/oxenstored
 tools/ocaml/test/xtl
-
+tools/ocaml/test/send_debug_keys
+tools/ocaml/test/list_domains
 tools/debugger/kdd/kdd
 tools/firmware/etherboot/ipxe.tar.gz
 tools/firmware/etherboot/ipxe/
