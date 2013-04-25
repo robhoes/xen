@@ -56,6 +56,14 @@ external ctx_alloc: Xentoollog.handle -> ctx = "stub_libxl_ctx_alloc"
 
 external test_raise_exception: unit -> unit = "stub_raise_exception"
 
+type event =
+	| POLLIN (* There is data to read *)
+	| POLLPRI (* There is urgent data to read *)
+	| POLLOUT (* Writing now will not block *)
+	| POLLERR (* Error condition (revents only) *)
+	| POLLHUP (* Device has been disconnected (revents only) *)
+	| POLLNVAL (* Invalid request: fd not open (revents only). *)
+
 (* @@LIBXL_TYPES@@ *)
 
 external send_trigger : ctx -> domid -> trigger -> int -> unit = "stub_xl_send_trigger"
@@ -63,4 +71,64 @@ external send_sysrq : ctx -> domid -> char -> unit = "stub_xl_send_sysrq"
 external send_debug_keys : ctx -> string -> unit = "stub_xl_send_debug_keys"
 external xen_console_read : ctx -> string list = "stub_xl_xen_console_read"
 
-let _ = Callback.register_exception "Xenlight.Error" (Error(Fail, ""))
+module type EVENT_USERS =
+	sig
+		type osevent_user
+		type event_user
+		type async_user
+	end
+
+module Async = functor (S: EVENT_USERS) -> struct
+	type for_libxl
+	type event_hooks
+	type osevent_hooks
+
+	module OseventSet = Set.Make(struct type t = S.osevent_user;; let compare = Pervasives.compare end)
+	module EventSet = Set.Make(struct type t = S.event_user;; let compare = Pervasives.compare end)
+	module AsyncSet = Set.Make(struct type t = S.async_user;; let compare = Pervasives.compare end)
+
+	let osevent_users = ref OseventSet.empty
+	let event_users = ref EventSet.empty
+	let async_users = ref AsyncSet.empty
+	let async_callback_ref = ref None
+
+	external osevent_register_hooks' : ctx -> S.osevent_user -> osevent_hooks = "stub_libxl_osevent_register_hooks"
+	external osevent_occurred_fd : ctx -> for_libxl -> Unix.file_descr -> event list -> event list -> unit = "stub_libxl_osevent_occurred_fd"
+	external osevent_occurred_timeout : ctx -> for_libxl -> unit = "stub_libxl_osevent_occurred_timeout"
+
+	let osevent_register_hooks ctx ~user ~fd_register ~fd_modify ~fd_deregister ~timeout_register ~timeout_modify =
+		Callback.register "libxl_fd_register" fd_register;
+		Callback.register "libxl_fd_modify" fd_modify;
+		Callback.register "libxl_fd_deregister" fd_deregister;
+		Callback.register "libxl_timeout_register" timeout_register;
+		Callback.register "libxl_timeout_modify" timeout_modify;
+		osevent_users := OseventSet.add user !osevent_users;
+		osevent_register_hooks' ctx user
+
+	let async f user =
+		async_users := AsyncSet.add user !async_users;
+		f ?async:(Some user) ()
+
+	let async_callback' result user =
+		async_users := AsyncSet.remove user !async_users;
+		match !async_callback_ref with
+		| None -> ()
+		| Some f -> f ~result ~user
+
+	let async_register_callback ~async_callback =
+		async_callback_ref := Some async_callback;
+		Callback.register "libxl_async_callback" async_callback'
+
+	external evenable_domain_death : ctx -> domid -> int -> unit = "stub_libxl_evenable_domain_death"
+	external event_register_callbacks' : ctx -> S.event_user -> event_hooks = "stub_libxl_event_register_callbacks"
+
+	let event_register_callbacks ctx ~user ~event_occurs_callback ~event_disaster_callback =
+		Callback.register "libxl_event_occurs_callback" event_occurs_callback;
+		Callback.register "libxl_event_disaster_callback" event_disaster_callback;
+		event_users := EventSet.add user !event_users;
+		event_register_callbacks' ctx user
+end
+
+let _ =
+	Callback.register_exception "Xenlight.Error" (Error(Fail, ""))
+
