@@ -13,6 +13,8 @@
  * GNU Lesser General Public License for more details.
  */
 
+#define OCAML_READY
+
 /*
  * libxl API compatibility
  *
