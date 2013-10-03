@@ -152,6 +152,15 @@ def gen_ocaml_ml(ty, interface, indent=""):
         s += "type %s = \n" % ty.rawname
         for v in ty.values:
             s += "\t | %s\n" % v.rawname
+
+        if interface:
+            s += "\nval string_of_%s : %s -> string\n" % (ty.rawname, ty.rawname)
+        else:
+            s += "\nlet string_of_%s = function\n" % ty.rawname
+            n = len(ty.rawname) + 1
+            for v in ty.values:
+                s += '\t| %s -> "%s"\n' % (v.rawname, v.rawname[n:])
+
     elif isinstance(ty, idl.Aggregate):
         s += ""
         
