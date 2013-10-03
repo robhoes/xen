@@ -497,7 +497,7 @@ static void multidev_one_callback(libxl__egc *egc, libxl__ao_device *aodev)
 {
     STATE_AO_GC(aodev->ao);
     libxl__multidev *multidev = aodev->multidev;
-    int i, error = 0;
+    int i, err = 0;
 
     aodev->active = 0;
 
@@ -506,10 +506,10 @@ static void multidev_one_callback(libxl__egc *egc, libxl__ao_device *aodev)
             return;
 
         if (multidev->array[i]->rc)
-            error = multidev->array[i]->rc;
+            err = multidev->array[i]->rc;
     }
 
-    multidev->callback(egc, multidev, error);
+    multidev->callback(egc, multidev, err);
     return;
 }
 
