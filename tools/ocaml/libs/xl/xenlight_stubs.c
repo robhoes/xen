@@ -1285,7 +1285,7 @@ void disaster(void *user, libxl_event_type type,
                      const char *msg, int errnoval)
 {
 	CAMLparam0();
-	CAMLlocalN(args, 2);
+	CAMLlocalN(args, 4);
 	struct user_with_ctx *c_user = (struct user_with_ctx *) user;
 	static value *func = NULL;
 
