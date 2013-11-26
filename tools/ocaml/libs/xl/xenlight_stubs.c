@@ -34,6 +34,10 @@
 
 #include "caml_xentoollog.h"
 
+#define CAMLdone do{ \
+caml_local_roots = caml__frame; \
+}while (0)
+
 #define Ctx_val(x)(*((libxl_ctx **) Data_custom_val(x)))
 #define CTX ((libxl_ctx *) Ctx_val(ctx))
 
@@ -374,6 +378,7 @@ static char *String_option_val(value v)
 
 void async_callback(libxl_ctx *ctx, int rc, void *for_callback)
 {
+	caml_leave_blocking_section();
 	CAMLparam0();
 	CAMLlocal1(error);
 	int *task = (int *) for_callback;
@@ -390,19 +395,22 @@ void async_callback(libxl_ctx *ctx, int rc, void *for_callback)
 		error = Val_some(Val_error(rc));
 
 	caml_callback2(*func, error, (value) for_callback);
+	CAMLdone;
+	caml_enter_blocking_section();
 }
 
-static libxl_asyncop_how *aohow_val(value async, libxl_asyncop_how *ao_how)
+static libxl_asyncop_how *aohow_val(value async)
 {
 	CAMLparam1(async);
+	libxl_asyncop_how *ao_how = NULL;
 
 	if (async != Val_none) {
+		libxl_asyncop_how *ao_how = malloc(sizeof(*ao_how));
 		ao_how->callback = async_callback;
 		ao_how->u.for_callback = (void *) Some_val(async);
-		CAMLreturnT(libxl_asyncop_how *, ao_how);
 	}
-	else
-		CAMLreturnT(libxl_asyncop_how *, NULL);
+
+	CAMLreturnT(libxl_asyncop_how *, ao_how);
 }
 
 value stub_libxl_domain_create_new(value ctx, value domain_config, value async, value unit)
@@ -411,7 +419,7 @@ value stub_libxl_domain_create_new(value ctx, value domain_config, value async, 
 	int ret;
 	libxl_domain_config c_dconfig;
 	uint32_t c_domid;
-	libxl_asyncop_how ao_how;
+	libxl_asyncop_how *ao_how;
 
 	libxl_domain_config_init(&c_dconfig);
 	ret = domain_config_val(CTX, &c_dconfig, domain_config);
@@ -420,9 +428,14 @@ value stub_libxl_domain_create_new(value ctx, value domain_config, value async, 
 		failwith_xl(ret, "domain_create_new");
 	}
 
-	ret = libxl_domain_create_new(CTX, &c_dconfig, &c_domid,
-		aohow_val(async, &ao_how), NULL);
+	ao_how = aohow_val(async);
 
+	caml_enter_blocking_section();
+	ret = libxl_domain_create_new(CTX, &c_dconfig, &c_domid, ao_how, NULL);
+	caml_leave_blocking_section();
+
+	if (ao_how)
+		free(ao_how);
 	libxl_domain_config_dispose(&c_dconfig);
 
 	if (ret != 0)
@@ -439,7 +452,8 @@ value stub_libxl_domain_create_restore(value ctx, value domain_config, value par
 	libxl_domain_config c_dconfig;
 	libxl_domain_restore_params c_params;
 	uint32_t c_domid;
-	libxl_asyncop_how ao_how;
+	libxl_asyncop_how *ao_how;
+	int restore_fd;
 
 	libxl_domain_config_init(&c_dconfig);
 	ret = domain_config_val(CTX, &c_dconfig, domain_config);
@@ -455,9 +469,16 @@ value stub_libxl_domain_create_restore(value ctx, value domain_config, value par
 		failwith_xl(ret, "domain_create_restore");
 	}
 
-	ret = libxl_domain_create_restore(CTX, &c_dconfig, &c_domid, Int_val(Field(params, 0)),
-		&c_params, aohow_val(async, &ao_how), NULL);
+	ao_how = aohow_val(async);
+	restore_fd = Int_val(Field(params, 0));
 
+	caml_enter_blocking_section();
+	ret = libxl_domain_create_restore(CTX, &c_dconfig, &c_domid, restore_fd,
+		&c_params, ao_how, NULL);
+	caml_leave_blocking_section();
+
+	if (ao_how)
+		free(ao_how);
 	libxl_domain_config_dispose(&c_dconfig);
 	libxl_domain_restore_params_dispose(&c_params);
 
@@ -471,8 +492,12 @@ value stub_libxl_domain_shutdown(value ctx, value domid)
 {
 	CAMLparam2(ctx, domid);
 	int ret;
+	uint32_t c_domid = Int_val(domid);
 
-	ret = libxl_domain_shutdown(CTX, Int_val(domid));
+	caml_enter_blocking_section();
+	ret = libxl_domain_shutdown(CTX, c_domid);
+	caml_leave_blocking_section();
+
 	if (ret != 0)
 		failwith_xl(ret, "domain_shutdown");
 
@@ -483,8 +508,12 @@ value stub_libxl_domain_reboot(value ctx, value domid)
 {
 	CAMLparam2(ctx, domid);
 	int ret;
+	uint32_t c_domid = Int_val(domid);
 
-	ret = libxl_domain_reboot(CTX, Int_val(domid));
+	caml_enter_blocking_section();
+	ret = libxl_domain_reboot(CTX, c_domid);
+	caml_leave_blocking_section();
+
 	if (ret != 0)
 		failwith_xl(ret, "domain_reboot");
 
@@ -495,9 +524,16 @@ value stub_libxl_domain_destroy(value ctx, value domid, value async, value unit)
 {
 	CAMLparam4(ctx, domid, async, unit);
 	int ret;
-	libxl_asyncop_how ao_how;
+	uint32_t c_domid = Int_val(domid);
+	libxl_asyncop_how *ao_how = aohow_val(async);
 
-	ret = libxl_domain_destroy(CTX, Int_val(domid), aohow_val(async, &ao_how));
+	caml_enter_blocking_section();
+	ret = libxl_domain_destroy(CTX, c_domid, ao_how);
+	caml_leave_blocking_section();
+
+	if (ao_how)
+		free(ao_how);
+
 	if (ret != 0)
 		failwith_xl(ret, "domain_destroy");
 
@@ -508,10 +544,17 @@ value stub_libxl_domain_suspend(value ctx, value domid, value fd, value async, v
 {
 	CAMLparam5(ctx, domid, fd, async, unit);
 	int ret;
-	libxl_asyncop_how ao_how;
+	uint32_t c_domid = Int_val(domid);
+	int c_fd = Int_val(fd);
+	libxl_asyncop_how *ao_how = aohow_val(async);
 
-	ret = libxl_domain_suspend(CTX, Int_val(domid), Int_val(fd), 0,
-		aohow_val(async, &ao_how));
+	caml_enter_blocking_section();
+	ret = libxl_domain_suspend(CTX, c_domid, c_fd, 0, ao_how);
+	caml_leave_blocking_section();
+
+	if (ao_how)
+		free(ao_how);
+
 	if (ret != 0)
 		failwith_xl(ret, "domain_suspend");
 
@@ -522,8 +565,12 @@ value stub_libxl_domain_pause(value ctx, value domid)
 {
 	CAMLparam2(ctx, domid);
 	int ret;
+	uint32_t c_domid = Int_val(domid);
 
-	ret = libxl_domain_pause(CTX, Int_val(domid));
+	caml_enter_blocking_section();
+	ret = libxl_domain_pause(CTX, c_domid);
+	caml_leave_blocking_section();
+
 	if (ret != 0)
 		failwith_xl(ret, "domain_pause");
 
@@ -534,8 +581,12 @@ value stub_libxl_domain_unpause(value ctx, value domid)
 {
 	CAMLparam2(ctx, domid);
 	int ret;
+	uint32_t c_domid = Int_val(domid);
 
-	ret = libxl_domain_unpause(CTX, Int_val(domid));
+	caml_enter_blocking_section();
+	ret = libxl_domain_unpause(CTX, c_domid);
+	caml_leave_blocking_section();
+
 	if (ret != 0)
 		failwith_xl(ret, "domain_unpause");
 
@@ -552,13 +603,17 @@ value stub_xl_device_##type##_##op(value ctx, value info, value domid,	\
 	CAMLparam5(ctx, info, domid, async, unit);			\
 	libxl_device_##type c_info;					\
 	int ret, marker_var;						\
-	libxl_asyncop_how ao_how;					\
+	uint32_t c_domid = Int_val(domid);					\
+	libxl_asyncop_how *ao_how = aohow_val(async);			\
 									\
 	device_##type##_val(CTX, &c_info, info);			\
 									\
-	ret = libxl_##fn##_##op(CTX, Int_val(domid), &c_info,		\
-		aohow_val(async, &ao_how));				\
+	caml_enter_blocking_section();					\
+	ret = libxl_##fn##_##op(CTX, c_domid, &c_info, ao_how);		\
+	caml_leave_blocking_section();					\
 									\
+	if (ao_how)							\
+		free(ao_how);						\
 	libxl_device_##type##_dispose(&c_info);				\
 									\
 	if (ret != 0)							\
@@ -584,9 +639,16 @@ value stub_xl_device_nic_of_devid(value ctx, value domid, value devid)
 	CAMLparam3(ctx, domid, devid);
 	CAMLlocal1(nic);
 	libxl_device_nic c_nic;
-	libxl_devid_to_device_nic(CTX, Int_val(domid), Int_val(devid), &c_nic);
+	uint32_t c_domid = Int_val(domid);
+	int c_devid = Int_val(devid);
+
+	caml_enter_blocking_section();
+	libxl_devid_to_device_nic(CTX, c_domid, c_devid, &c_nic);
+	caml_leave_blocking_section();
+
 	nic = Val_device_nic(&c_nic);
 	libxl_device_nic_dispose(&c_nic);
+
 	CAMLreturn(nic);
 }
 
@@ -596,11 +658,12 @@ value stub_xl_device_nic_list(value ctx, value domid)
 	CAMLlocal2(list, temp);
 	libxl_device_nic *c_list;
 	int i, nb;
-	uint32_t c_domid;
+	uint32_t c_domid = Int_val(domid);
 
-	c_domid = Int_val(domid);
-
+	caml_enter_blocking_section();
 	c_list = libxl_device_nic_list(CTX, c_domid, &nb);
+	caml_leave_blocking_section();
+
 	if (!c_list)
 		failwith_xl(ERROR_FAIL, "nic_list");
 
@@ -624,11 +687,12 @@ value stub_xl_device_disk_list(value ctx, value domid)
 	CAMLlocal2(list, temp);
 	libxl_device_disk *c_list;
 	int i, nb;
-	uint32_t c_domid;
+	uint32_t c_domid = Int_val(domid);
 
-	c_domid = Int_val(domid);
-
+	caml_enter_blocking_section();
 	c_list = libxl_device_disk_list(CTX, c_domid, &nb);
+	caml_leave_blocking_section();
+
 	if (!c_list)
 		failwith_xl(ERROR_FAIL, "disk_list");
 
@@ -651,9 +715,20 @@ value stub_xl_device_disk_of_vdev(value ctx, value domid, value vdev)
 	CAMLparam3(ctx, domid, vdev);
 	CAMLlocal1(disk);
 	libxl_device_disk c_disk;
-	libxl_vdev_to_device_disk(CTX, Int_val(domid), String_val(vdev), &c_disk);
+	char *c_vdev;
+	uint32_t c_domid = Int_val(domid);
+
+	c_vdev = malloc((caml_string_length(vdev) + 1) * sizeof(char *));
+	strcpy(c_vdev, String_val(vdev));
+
+	caml_enter_blocking_section();
+	libxl_vdev_to_device_disk(CTX, c_domid, c_vdev, &c_disk);
+	caml_leave_blocking_section();
+
 	disk = Val_device_disk(&c_disk);
 	libxl_device_disk_dispose(&c_disk);
+	free(c_vdev);
+
 	CAMLreturn(disk);
 }
 
@@ -663,11 +738,12 @@ value stub_xl_device_pci_list(value ctx, value domid)
 	CAMLlocal2(list, temp);
 	libxl_device_pci *c_list;
 	int i, nb;
-	uint32_t c_domid;
+	uint32_t c_domid = Int_val(domid);
 
-	c_domid = Int_val(domid);
-
+	caml_enter_blocking_section();
 	c_list = libxl_device_pci_list(CTX, c_domid, &nb);
+	caml_leave_blocking_section();
+
 	if (!c_list)
 		failwith_xl(ERROR_FAIL, "pci_list");
 
@@ -690,10 +766,13 @@ value stub_xl_device_pci_assignable_add(value ctx, value info, value rebind)
 	CAMLparam3(ctx, info, rebind);
 	libxl_device_pci c_info;
 	int ret, marker_var;
+	int c_rebind = (int) Bool_val(rebind);
 
 	device_pci_val(CTX, &c_info, info);
 
-	ret = libxl_device_pci_assignable_add(CTX, &c_info, (int) Bool_val(rebind));
+	caml_enter_blocking_section();
+	ret = libxl_device_pci_assignable_add(CTX, &c_info, c_rebind);
+	caml_leave_blocking_section();
 
 	libxl_device_pci_dispose(&c_info);
 
@@ -708,10 +787,13 @@ value stub_xl_device_pci_assignable_remove(value ctx, value info, value rebind)
 	CAMLparam3(ctx, info, rebind);
 	libxl_device_pci c_info;
 	int ret, marker_var;
+	int c_rebind = (int) Bool_val(rebind);
 
 	device_pci_val(CTX, &c_info, info);
 
-	ret = libxl_device_pci_assignable_remove(CTX, &c_info, (int) Bool_val(rebind));
+	caml_enter_blocking_section();
+	ret = libxl_device_pci_assignable_remove(CTX, &c_info, c_rebind);
+	caml_leave_blocking_section();
 
 	libxl_device_pci_dispose(&c_info);
 
@@ -729,7 +811,10 @@ value stub_xl_device_pci_assignable_list(value ctx)
 	int i, nb;
 	uint32_t c_domid;
 
+	caml_enter_blocking_section();
 	c_list = libxl_device_pci_assignable_list(CTX, &nb);
+	caml_leave_blocking_section();
+
 	if (!c_list)
 		failwith_xl(ERROR_FAIL, "pci_assignable_list");
 
@@ -754,7 +839,9 @@ value stub_xl_physinfo_get(value ctx)
 	libxl_physinfo c_physinfo;
 	int ret;
 
+	caml_enter_blocking_section();
 	ret = libxl_get_physinfo(CTX, &c_physinfo);
+	caml_leave_blocking_section();
 
 	if (ret != 0)
 		failwith_xl(ret, "get_physinfo");
@@ -773,7 +860,9 @@ value stub_xl_cputopology_get(value ctx)
 	libxl_cputopology *c_topology;
 	int i, nr;
 
+	caml_enter_blocking_section();
 	c_topology = libxl_get_cpu_topology(CTX, &nr);
+	caml_leave_blocking_section();
 
 	if (!c_topology)
 		failwith_xl(ERROR_FAIL, "get_cpu_topologyinfo");
@@ -801,7 +890,10 @@ value stub_xl_dominfo_list(value ctx)
 	libxl_dominfo *c_domlist;
 	int i, nb;
 
+	caml_enter_blocking_section();
 	c_domlist = libxl_list_domain(CTX, &nb);
+	caml_leave_blocking_section();
+
 	if (!c_domlist)
 		failwith_xl(ERROR_FAIL, "dominfo_list");
 
@@ -826,8 +918,12 @@ value stub_xl_dominfo_get(value ctx, value domid)
 	CAMLlocal1(dominfo);
 	libxl_dominfo c_dominfo;
 	int ret;
+	uint32_t c_domid = Int_val(domid);
 
-	ret = libxl_domain_info(CTX, &c_dominfo, Int_val(domid));
+	caml_enter_blocking_section();
+	ret = libxl_domain_info(CTX, &c_dominfo, c_domid);
+	caml_leave_blocking_section();
+
 	if (ret != 0)
 		failwith_xl(ERROR_FAIL, "domain_info");
 	dominfo = Val_dominfo(&c_dominfo);
@@ -841,8 +937,12 @@ value stub_xl_domain_sched_params_get(value ctx, value domid)
 	CAMLlocal1(scinfo);
 	libxl_domain_sched_params c_scinfo;
 	int ret;
+	uint32_t c_domid = Int_val(domid);
 
-	ret = libxl_domain_sched_params_get(CTX, Int_val(domid), &c_scinfo);
+	caml_enter_blocking_section();
+	ret = libxl_domain_sched_params_get(CTX, c_domid, &c_scinfo);
+	caml_leave_blocking_section();
+
 	if (ret != 0)
 		failwith_xl(ret, "domain_sched_params_get");
 
@@ -858,10 +958,13 @@ value stub_xl_domain_sched_params_set(value ctx, value domid, value scinfo)
 	CAMLparam3(ctx, domid, scinfo);
 	libxl_domain_sched_params c_scinfo;
 	int ret;
+	uint32_t c_domid = Int_val(domid);
 
 	domain_sched_params_val(CTX, &c_scinfo, scinfo);
 
-	ret = libxl_domain_sched_params_set(CTX, Int_val(domid), &c_scinfo);
+	caml_enter_blocking_section();
+	ret = libxl_domain_sched_params_set(CTX, c_domid, &c_scinfo);
+	caml_leave_blocking_section();
 
 	libxl_domain_sched_params_dispose(&c_scinfo);
 
@@ -875,12 +978,15 @@ value stub_xl_send_trigger(value ctx, value domid, value trigger, value vcpuid)
 {
 	CAMLparam4(ctx, domid, trigger, vcpuid);
 	int ret;
+	uint32_t c_domid = Int_val(domid);
 	libxl_trigger c_trigger = LIBXL_TRIGGER_UNKNOWN;
+	int c_vcpuid = Int_val(vcpuid);
 
 	trigger_val(CTX, &c_trigger, trigger);
 
-	ret = libxl_send_trigger(CTX, Int_val(domid),
-				 c_trigger, Int_val(vcpuid));
+	caml_enter_blocking_section();
+	ret = libxl_send_trigger(CTX, c_domid, c_trigger, c_vcpuid);
+	caml_leave_blocking_section();
 
 	if (ret != 0)
 		failwith_xl(ret, "send_trigger");
@@ -892,8 +998,12 @@ value stub_xl_send_sysrq(value ctx, value domid, value sysrq)
 {
 	CAMLparam3(ctx, domid, sysrq);
 	int ret;
+	uint32_t c_domid = Int_val(domid);
+	int c_sysrq = Int_val(sysrq);
 
-	ret = libxl_send_sysrq(CTX, Int_val(domid), Int_val(sysrq));
+	caml_enter_blocking_section();
+	ret = libxl_send_sysrq(CTX, c_domid, c_sysrq);
+	caml_leave_blocking_section();
 
 	if (ret != 0)
 		failwith_xl(ret, "send_sysrq");
@@ -909,7 +1019,10 @@ value stub_xl_send_debug_keys(value ctx, value keys)
 
 	c_keys = dup_String_val(keys);
 
+	caml_enter_blocking_section();
 	ret = libxl_send_debug_keys(CTX, c_keys);
+	caml_leave_blocking_section();
+
 	free(c_keys);
 
 	if (ret != 0)
@@ -933,9 +1046,12 @@ value stub_libxl_xen_console_read_start(value ctx, value clear)
 {
 	CAMLparam2(ctx, clear);
 	CAMLlocal1(handle);
+	int c_clear = Int_val(clear);
 	libxl_xen_console_reader *cr;
 
-	cr = libxl_xen_console_read_start(CTX, Int_val(clear));
+	caml_enter_blocking_section();
+	cr = libxl_xen_console_read_start(CTX, c_clear);
+	caml_leave_blocking_section();
 
 	handle = caml_alloc_custom(&libxl_console_reader_custom_operations, sizeof(cr), 0, 1);
 	Console_reader_val(handle) = cr;
@@ -965,7 +1081,9 @@ value stub_libxl_xen_console_read_line(value ctx, value reader)
 	char *c_line;
 	libxl_xen_console_reader *cr = (libxl_xen_console_reader *) Console_reader_val(reader);
 
+	caml_enter_blocking_section();
 	ret = libxl_xen_console_read_line(CTX, cr, &c_line);
+	caml_leave_blocking_section();
 
 	if (ret < 0)
 		failwith_xl(ret, "xen_console_read_line");
@@ -982,7 +1100,9 @@ value stub_libxl_xen_console_read_finish(value ctx, value reader)
 	CAMLparam2(ctx, reader);
 	libxl_xen_console_reader *cr = (libxl_xen_console_reader *) Console_reader_val(reader);
 
+	caml_enter_blocking_section();
 	libxl_xen_console_read_finish(CTX, cr);
+	caml_leave_blocking_section();
 
 	CAMLreturn(Val_unit);
 }
@@ -1074,6 +1194,7 @@ value Val_poll_events(short events)
 int fd_register(void *user, int fd, void **for_app_registration_out,
                      short events, void *for_libxl)
 {
+	caml_leave_blocking_section();
 	CAMLparam0();
 	CAMLlocalN(args, 4);
 	static value *func = NULL;
@@ -1089,12 +1210,15 @@ int fd_register(void *user, int fd, void **for_app_registration_out,
 	args[3] = (value) for_libxl;
 
 	caml_callbackN(*func, 4, args);
-	CAMLreturn(0);
+	CAMLdone;
+	caml_enter_blocking_section();
+	return 0;
 }
 
 int fd_modify(void *user, int fd, void **for_app_registration_update,
                    short events)
 {
+	caml_leave_blocking_section();
 	CAMLparam0();
 	CAMLlocalN(args, 3);
 	static value *func = NULL;
@@ -1109,11 +1233,14 @@ int fd_modify(void *user, int fd, void **for_app_registration_update,
 	args[2] = Val_poll_events(events);
 
 	caml_callbackN(*func, 3, args);
-	CAMLreturn(0);
+	CAMLdone;
+	caml_enter_blocking_section();
+	return 0;
 }
 
 void fd_deregister(void *user, int fd, void *for_app_registration)
 {
+	caml_leave_blocking_section();
 	CAMLparam0();
 	CAMLlocalN(args, 2);
 	static value *func = NULL;
@@ -1127,12 +1254,14 @@ void fd_deregister(void *user, int fd, void *for_app_registration)
 	args[1] = Val_int(fd);
 
 	caml_callbackN(*func, 2, args);
-	CAMLreturn0;
+	CAMLdone;
+	caml_enter_blocking_section();
 }
 
 int timeout_register(void *user, void **for_app_registration_out,
                           struct timeval abs, void *for_libxl)
 {
+	caml_leave_blocking_section();
 	CAMLparam0();
 	CAMLlocalN(args, 4);
 	static value *func = NULL;
@@ -1148,12 +1277,15 @@ int timeout_register(void *user, void **for_app_registration_out,
 	args[3] = (value) for_libxl;
 
 	caml_callbackN(*func, 4, args);
-	CAMLreturn(0);
+	CAMLdone;
+	caml_enter_blocking_section();
+	return 0;
 }
 
 int timeout_modify(void *user, void **for_app_registration_update,
                          struct timeval abs)
 {
+	caml_leave_blocking_section();
 	CAMLparam0();
 	static value *func = NULL;
 
@@ -1163,13 +1295,16 @@ int timeout_modify(void *user, void **for_app_registration_update,
 	}
 
 	caml_callback(*func, (value) user);
-	CAMLreturn(0);
+	CAMLdone;
+	caml_enter_blocking_section();
+	return 0;
 }
 
 void timeout_deregister(void *user, void *for_app_registration)
 {
+	caml_leave_blocking_section();
 	failwith_xl(ERROR_FAIL, "timeout_deregister not yet implemented");
-	return;
+	caml_enter_blocking_section();
 }
 
 value stub_libxl_osevent_register_hooks(value ctx, value user)
@@ -1186,7 +1321,10 @@ value stub_libxl_osevent_register_hooks(value ctx, value user)
 	hooks->timeout_modify = timeout_modify;
 	hooks->timeout_deregister = timeout_deregister;
 
+	caml_enter_blocking_section();
 	libxl_osevent_register_hooks(CTX, hooks, (void *) user);
+	caml_leave_blocking_section();
+
 	result = caml_alloc(1, Abstract_tag);
 	*((libxl_osevent_hooks **) result) = hooks;
 
@@ -1197,15 +1335,23 @@ value stub_libxl_osevent_occurred_fd(value ctx, value for_libxl, value fd,
 	value events, value revents)
 {
 	CAMLparam5(ctx, for_libxl, fd, events, revents);
+
+	caml_enter_blocking_section();
 	libxl_osevent_occurred_fd(CTX, (void *) for_libxl, Int_val(fd),
 		Poll_events_val(events), Poll_events_val(revents));
+	caml_leave_blocking_section();
+
 	CAMLreturn(Val_unit);
 }
 
 value stub_libxl_osevent_occurred_timeout(value ctx, value for_libxl)
 {
 	CAMLparam2(ctx, for_libxl);
+
+	caml_enter_blocking_section();
 	libxl_osevent_occurred_timeout(CTX, (void *) for_libxl);
+	caml_leave_blocking_section();
+
 	CAMLreturn(Val_unit);
 }
 
@@ -1216,6 +1362,7 @@ struct user_with_ctx {
 
 void event_occurs(void *user, libxl_event *event)
 {
+	caml_leave_blocking_section();
 	CAMLparam0();
 	CAMLlocalN(args, 2);
 	struct user_with_ctx *c_user = (struct user_with_ctx *) user;
@@ -1231,12 +1378,14 @@ void event_occurs(void *user, libxl_event *event)
 	libxl_event_free(c_user->ctx, event);
 
 	caml_callbackN(*func, 2, args);
-	CAMLreturn0;
+	CAMLdone;
+	caml_enter_blocking_section();
 }
 
 void disaster(void *user, libxl_event_type type,
                      const char *msg, int errnoval)
 {
+	caml_leave_blocking_section();
 	CAMLparam0();
 	CAMLlocalN(args, 4);
 	struct user_with_ctx *c_user = (struct user_with_ctx *) user;
@@ -1253,7 +1402,8 @@ void disaster(void *user, libxl_event_type type,
 	args[3] = Val_int(errnoval);
 
 	caml_callbackN(*func, 4, args);
-	CAMLreturn0;
+	CAMLdone;
+	caml_enter_blocking_section();
 }
 
 value stub_libxl_event_register_callbacks(value ctx, value user)
@@ -1272,7 +1422,10 @@ value stub_libxl_event_register_callbacks(value ctx, value user)
 	hooks->event_occurs = event_occurs;
 	hooks->disaster = disaster;
 
+	caml_enter_blocking_section();
 	libxl_event_register_callbacks(CTX, hooks, (void *) c_user);
+	caml_leave_blocking_section();
+
 	result = caml_alloc(1, Abstract_tag);
 	*((libxl_event_hooks **) result) = hooks;
 
@@ -1284,7 +1437,9 @@ value stub_libxl_evenable_domain_death(value ctx, value domid, value user)
 	CAMLparam3(ctx, domid, user);
 	libxl_evgen_domain_death *evgen_out;
 
+	caml_enter_blocking_section();
 	libxl_evenable_domain_death(CTX, Int_val(domid), Int_val(user), &evgen_out);
+	caml_leave_blocking_section();
 
 	CAMLreturn(Val_unit);
 }
