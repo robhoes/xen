@@ -307,6 +307,11 @@
 ^tools/ocaml/libs/xl/_libxl_types\.inc$
 ^tools/ocaml/libs/xl/xenlight\.ml$
 ^tools/ocaml/libs/xl/xenlight\.mli$
+^tools/ocaml/libs/xentoollog/_xtl_levels.inc$
+^tools/ocaml/libs/xentoollog/_xtl_levels.ml.in$
+^tools/ocaml/libs/xentoollog/_xtl_levels.mli.in$
+^tools/ocaml/libs/xentoollog/xentoollog.ml$
+^tools/ocaml/libs/xentoollog/xentoollog.mli$
 ^tools/ocaml/xenstored/oxenstored$
 ^tools/ocaml/test/xtl$
 ^tools/ocaml/test/send_debug_keys$
