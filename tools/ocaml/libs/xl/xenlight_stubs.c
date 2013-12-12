@@ -31,6 +31,7 @@
 #include <libxl_utils.h>
 
 #include <unistd.h>
+#include <assert.h>
 
 #include "caml_xentoollog.h"
 
@@ -1211,14 +1212,20 @@ value Val_poll_events(short events)
 	CAMLreturn(event_list);
 }
 
+/* The process for dealing with the for_app_registration_  values in the
+ * callbacks below (GC registrations etc) is similar to the way for_callback is
+ * handled in the asynchronous operations above. */
+
 int fd_register(void *user, int fd, void **for_app_registration_out,
                      short events, void *for_libxl)
 {
 	caml_leave_blocking_section();
 	CAMLparam0();
 	CAMLlocalN(args, 4);
+	int ret = 0;
 	static value *func = NULL;
 	value *p = (value *) user;
+	value *for_app;
 
 	if (func == NULL) {
 		/* First time around, lookup by name */
@@ -1230,10 +1237,25 @@ int fd_register(void *user, int fd, void **for_app_registration_out,
 	args[2] = Val_poll_events(events);
 	args[3] = (value) for_libxl;
 
-	caml_callbackN(*func, 4, args);
+	for_app = malloc(sizeof(value));
+	if (!for_app) {
+		ret = ERROR_OSEVENT_REG_FAIL;
+		goto err;
+	}
+
+	*for_app = caml_callbackN_exn(*func, 4, args);
+	if (Is_exception_result(*for_app)) {
+		ret = ERROR_OSEVENT_REG_FAIL;
+		goto err;
+	}
+
+	caml_register_global_root(for_app);
+	*for_app_registration_out = for_app;
+
+err:
 	CAMLdone;
 	caml_enter_blocking_section();
-	return 0;
+	return ret;
 }
 
 int fd_modify(void *user, int fd, void **for_app_registration_update,
@@ -1241,9 +1263,14 @@ int fd_modify(void *user, int fd, void **for_app_registration_update,
 {
 	caml_leave_blocking_section();
 	CAMLparam0();
-	CAMLlocalN(args, 3);
+	CAMLlocalN(args, 4);
+	int ret = 0;
 	static value *func = NULL;
 	value *p = (value *) user;
+	value *for_app = *for_app_registration_update;
+
+	/* If for_app == NULL, assume that something is wrong */
+	assert(for_app);
 
 	if (func == NULL) {
 		/* First time around, lookup by name */
@@ -1252,21 +1279,37 @@ int fd_modify(void *user, int fd, void **for_app_registration_update,
 
 	args[0] = *p;
 	args[1] = Val_int(fd);
-	args[2] = Val_poll_events(events);
+	args[2] = *for_app;
+	args[3] = Val_poll_events(events);
 
-	caml_callbackN(*func, 3, args);
+	*for_app = caml_callbackN_exn(*func, 4, args);
+	if (Is_exception_result(*for_app)) {
+		/* If an exception is caught, *for_app_registration_update is not
+		 * changed. It remains a valid pointer to a value that is registered
+		 * with the GC. */
+		ret = ERROR_OSEVENT_REG_FAIL;
+		goto err;
+	}
+
+	*for_app_registration_update = for_app;
+
+err:
 	CAMLdone;
 	caml_enter_blocking_section();
-	return 0;
+	return ret;
 }
 
 void fd_deregister(void *user, int fd, void *for_app_registration)
 {
 	caml_leave_blocking_section();
 	CAMLparam0();
-	CAMLlocalN(args, 2);
+	CAMLlocalN(args, 3);
 	static value *func = NULL;
 	value *p = (value *) user;
+	value *for_app = for_app_registration;
+
+	/* If for_app == NULL, assume that something is wrong */
+	assert(for_app);
 
 	if (func == NULL) {
 		/* First time around, lookup by name */
@@ -1275,8 +1318,15 @@ void fd_deregister(void *user, int fd, void *for_app_registration)
 
 	args[0] = *p;
 	args[1] = Val_int(fd);
+	args[2] = *for_app;
 
-	caml_callbackN(*func, 2, args);
+	caml_callbackN_exn(*func, 3, args);
+	/* If the callback were to raise an exception, this will be ignored;
+	 * this hook does not return error codes */
+
+	caml_remove_global_root(for_app);
+	free(for_app);
+
 	CAMLdone;
 	caml_enter_blocking_section();
 }
@@ -1288,8 +1338,10 @@ int timeout_register(void *user, void **for_app_registration_out,
 	CAMLparam0();
 	CAMLlocal2(sec, usec);
 	CAMLlocalN(args, 4);
+	int ret = 0;
 	static value *func = NULL;
 	value *p = (value *) user;
+	value *for_app;
 
 	if (func == NULL) {
 		/* First time around, lookup by name */
@@ -1304,10 +1356,25 @@ int timeout_register(void *user, void **for_app_registration_out,
 	args[2] = usec;
 	args[3] = (value) for_libxl;
 
-	caml_callbackN(*func, 4, args);
+	for_app = malloc(sizeof(value));
+	if (!for_app) {
+		ret = ERROR_OSEVENT_REG_FAIL;
+		goto err;
+	}
+
+	*for_app = caml_callbackN_exn(*func, 4, args);
+	if (Is_exception_result(*for_app)) {
+		ret = ERROR_OSEVENT_REG_FAIL;
+		goto err;
+	}
+
+	caml_register_global_root(for_app);
+	*for_app_registration_out = for_app;
+
+err:
 	CAMLdone;
 	caml_enter_blocking_section();
-	return 0;
+	return ret;
 }
 
 int timeout_modify(void *user, void **for_app_registration_update,
@@ -1315,18 +1382,43 @@ int timeout_modify(void *user, void **for_app_registration_update,
 {
 	caml_leave_blocking_section();
 	CAMLparam0();
+	CAMLlocalN(args, 2);
+	int ret = 0;
 	static value *func = NULL;
 	value *p = (value *) user;
+	value *for_app = *for_app_registration_update;
+
+	/* If for_app == NULL, assume that something is wrong */
+	assert(for_app);
 
 	if (func == NULL) {
 		/* First time around, lookup by name */
 		func = caml_named_value("libxl_timeout_modify");
 	}
 
-	caml_callback(*func, *p);
+	args[0] = *p;
+	args[1] = *for_app;
+
+	*for_app = caml_callbackN_exn(*func, 2, args);
+
+	if (Is_exception_result(*for_app)) {
+		/* If an exception is caught, *for_app_registration_update is not
+		 * changed. It remains a valid pointer to a value that is registered
+		 * with the GC. */
+		ret = ERROR_OSEVENT_REG_FAIL;
+		goto err;
+	}
+
+	/* This modify hook causes the timeout to fire immediately. Deregister
+	 * won't be called, so we clean up our GC registration here. */
+	caml_remove_global_root(for_app);
+	free(for_app);
+	*for_app_registration_update = NULL;
+
+err:
 	CAMLdone;
 	caml_enter_blocking_section();
-	return 0;
+	return ret;
 }
 
 void timeout_deregister(void *user, void *for_app_registration)
