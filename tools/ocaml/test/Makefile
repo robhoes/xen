@@ -49,8 +49,4 @@ all: $(PROGRAMS)
 
 bins: $(PROGRAMS)
 
-install: all
-	$(INSTALL_DIR) $(DESTDIR)$(BINDIR)
-	$(INSTALL_PROG) $(PROGRAMS) $(DESTDIR)$(BINDIR)
-
 include $(OCAML_TOPLEVEL)/Makefile.rules
