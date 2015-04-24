@@ -17,7 +17,33 @@ type ctx
 type domid = int
 type devid = int
 
+type ('a, 'b) result =
+	| Ok of 'a
+	| Fail of 'b
+
 (* @@LIBXL_TYPES@@ *)
+
+module Callbacks (X : sig type t end) = struct
+	let callbacks : (int64, (X.t, error) result -> unit) Hashtbl.t = Hashtbl.create 5
+	let next = ref 0L
+
+	let register f =
+		let index = !next in
+		Hashtbl.add callbacks index f;
+		next := Int64.succ !next;
+		index
+
+	let dispatch result index =
+		try
+			let f = Hashtbl.find callbacks index in
+			Hashtbl.remove callbacks index;
+			f result
+		with Not_found ->
+			failwith (Printf.sprintf "Cannot find callback function #%Ld in register" index)
+end
+
+module Callback_int = Callbacks (struct type t = int end)
+module Callback_unit = Callbacks (struct type t = unit end)
 
 exception Error of (error * string)
 
@@ -33,14 +59,39 @@ type event =
 	| POLLHUP (* Device has been disconnected (revents only) *)
 	| POLLNVAL (* Invalid request: fd not open (revents only). *)
 
+(* @@LIBXL_MODULES@@ *)
+
 module Domain = struct
-	external create_new : ctx -> Domain_config.t -> ?async:'a -> unit -> domid = "stub_libxl_domain_create_new"
-	external create_restore : ctx -> Domain_config.t -> (Unix.file_descr * Domain_restore_params.t) ->
-		?async:'a -> unit -> domid = "stub_libxl_domain_create_restore"
+	external create_new' : ctx -> Domain_config.t -> async:'a option -> domid = "stub_libxl_domain_create_new"
+	let create_new = create_new' ~async:None
+	let create_new_async ctx dconfig callback =
+		let index = Callback_int.register callback in
+		let _ = create_new' ctx dconfig ~async:(Some index) in
+		()
+
+	external create_restore' : ctx -> Domain_config.t -> (Unix.file_descr * Domain_restore_params.t) ->
+		async:'a option -> domid = "stub_libxl_domain_create_restore"
+	let create_restore = create_restore' ~async:None
+	let create_restore_async ctx dconfig params callback =
+		let index = Callback_int.register callback in
+		let _ = create_restore' ctx dconfig params ~async:(Some index) in
+		()
+
 	external shutdown : ctx -> domid -> unit = "stub_libxl_domain_shutdown"
 	external reboot : ctx -> domid -> unit = "stub_libxl_domain_reboot"
-	external destroy : ctx -> domid -> ?async:'a -> unit -> unit = "stub_libxl_domain_destroy"
-	external suspend : ctx -> domid -> Unix.file_descr -> ?async:'a -> unit -> unit = "stub_libxl_domain_suspend"
+
+	external destroy' : ctx -> domid -> async:'a option -> unit = "stub_libxl_domain_destroy"
+	let destroy = destroy' ~async:None
+	let destroy_async ctx domid callback =
+		let index = Callback_unit.register callback in
+		destroy' ctx domid ~async:(Some index)
+
+	external suspend' : ctx -> domid -> Unix.file_descr -> async:'a option -> unit = "stub_libxl_domain_suspend"
+	let suspend = suspend' ~async:None
+	let suspend_async ctx domid fd callback =
+		let index = Callback_unit.register callback in
+		suspend' ctx domid fd ~async:(Some index)
+
 	external pause : ctx -> domid -> unit = "stub_libxl_domain_pause"
 	external unpause : ctx -> domid -> unit = "stub_libxl_domain_unpause"
 
@@ -76,8 +127,9 @@ module Async = struct
 		Callback.register "libxl_timeout_fire_now" timeout_fire_now;
 		osevent_register_hooks' ctx user
 
-	let async_register_callback ~async_callback =
-		Callback.register "libxl_async_callback" async_callback
+	let async_register_callbacks () =
+		Callback.register "libxl_async_callback_unit" Callback_unit.dispatch;
+		Callback.register "libxl_async_callback_int" Callback_int.dispatch
 
 	external evenable_domain_death : ctx -> domid -> int -> unit = "stub_libxl_evenable_domain_death"
 	external event_register_callbacks' : ctx -> 'a -> event_hooks = "stub_libxl_event_register_callbacks"

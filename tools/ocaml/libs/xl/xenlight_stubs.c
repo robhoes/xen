@@ -239,6 +239,24 @@ static value Val_some(value v)
 	CAMLreturn(some);
 }
 
+static value Val_ok(value v)
+{
+	CAMLparam1(v);
+	CAMLlocal1(some);
+	some = caml_alloc(1, 0);
+	Store_field(some, 0, v);
+	CAMLreturn(some);
+}
+
+static value Val_fail(value v)
+{
+	CAMLparam1(v);
+	CAMLlocal1(some);
+	some = caml_alloc(1, 1);
+	Store_field(some, 0, v);
+	CAMLreturn(some);
+}
+
 static value Val_mac (libxl_mac *c_val)
 {
 	CAMLparam0();
@@ -418,137 +436,229 @@ static char *String_option_val(value v)
 }
 
 #include "_libxl_types.inc"
+#define DISPOSE_NUM (2)
+
+typedef struct {
+	value *token;
+	uint32_t *result;
+	void (*dispose[DISPOSE_NUM])(void *data);
+	void *dispose_data[DISPOSE_NUM];
+} async_for_callback;
 
 void async_callback(libxl_ctx *ctx, int rc, void *for_callback)
 {
 	caml_leave_blocking_section();
 	CAMLparam0();
-	CAMLlocal2(error, tmp);
-	static value *func = NULL;
-	value *p = (value *) for_callback;
+	CAMLlocal2(tmp, ret);
+	static value *callback_unit = NULL;
+	static value *callback_int = NULL;
+	async_for_callback *q = (async_for_callback *) for_callback;
+	value *token = (value *) q->token;
+	int *result = (int *) q->result;
+	int i;
 
-	if (func == NULL) {
-		/* First time around, lookup by name */
-		func = caml_named_value("libxl_async_callback");
+	for (i = 1; i < DISPOSE_NUM; i++) {
+		if (q->dispose[i] && q->dispose_data[i])
+			q->dispose[i](q->dispose_data[i]);
+		free(q->dispose_data[i]);
 	}
+	free(for_callback);
 
-	if (rc == 0)
-		error = Val_none;
+	/* First time around, lookup by name */
+	if (callback_unit == NULL)
+		callback_unit = caml_named_value("libxl_async_callback_unit");
+	if (callback_int == NULL)
+		callback_int = caml_named_value("libxl_async_callback_int");
+
+	if (rc == 0) {
+		if (result)
+			tmp = Val_int(*result);
+		else
+			tmp = Val_unit;
+		ret = Val_ok(tmp);
+	}
 	else {
 		tmp = Val_error(rc);
-		error = Val_some(tmp);
+		ret = Val_fail(tmp);
 	}
 
-	/* for_callback is a pointer to a "value" that was malloc'ed and
+	if (result)
+		caml_callback2(*callback_int, ret, *token);
+	else
+		caml_callback2(*callback_unit, ret, *token);
+
+	/* for_callback->token is a pointer to a "value" that was malloc'ed and
 	 * registered with the OCaml GC. The value is handed back to OCaml
 	 * in the following callback, after which the pointer is unregistered
 	 * and freed. */
-	caml_callback2(*func, error, *p);
-
-	caml_remove_global_root(p);
-	free(p);
+	caml_remove_global_root(token);
+	free(token);
+	free(result);
 
 	CAMLdone;
 	caml_enter_blocking_section();
 }
 
-static libxl_asyncop_how *aohow_val(value async)
-{
-	CAMLparam1(async);
-	libxl_asyncop_how *ao_how = NULL;
-	value *p;
+#define AO_HOW_CREATE										\
+	libxl_asyncop_how *ao_how = NULL;							\
+	value *token = NULL;									\
+	async_for_callback *for_callback = NULL;						\
+												\
+	if (async != Val_none) {								\
+		/* for_callback->token must be a pointer to a "value" that is malloc'ed and	\
+		 * registered with the OCaml GC. This ensures that the GC does not remove	\
+		 * the corresponding OCaml heap blocks, and allows the GC to update the value	\
+		 * when blocks are moved around, while libxl is free to copy the pointer if	\
+		 * it needs to.									\
+		 * The for_callback->token pointer must always be non-NULL. */			\
+		token = malloc(sizeof(value));							\
+		if (!token)									\
+			failwith_xl(ERROR_NOMEM, "cannot allocate value");			\
+		*token = Some_val(async);							\
+		caml_register_global_root(token);						\
+												\
+		for_callback = malloc(sizeof(*for_callback));					\
+		if (!for_callback) {								\
+			free(token);								\
+			failwith_xl(ERROR_NOMEM, "cannot allocate value");			\
+		}										\
+		memset(for_callback, 0, sizeof(*for_callback));					\
+		for_callback->token = token;							\
+												\
+		ao_how = malloc(sizeof(*ao_how));						\
+		if (!ao_how) {									\
+			free(token);								\
+			free(for_callback);							\
+			failwith_xl(ERROR_NOMEM, "cannot allocate value");			\
+		}										\
+		ao_how->callback = async_callback;						\
+		ao_how->u.for_callback = (void *) for_callback;					\
+	}											\
 
-	if (async != Val_none) {
-		/* for_callback must be a pointer to a "value" that is malloc'ed and
-		 * registered with the OCaml GC. This ensures that the GC does not remove
-		 * the corresponding OCaml heap blocks, and allows the GC to update the value
-		 * when blocks are moved around, while libxl is free to copy the pointer if
-		 * it needs to.
-		 * The for_callback pointer must always be non-NULL. */
-		p = malloc(sizeof(value));
-		if (!p)
-			failwith_xl(ERROR_NOMEM, "cannot allocate value");
-		*p = Some_val(async);
-		caml_register_global_root(p);
-		ao_how = malloc(sizeof(*ao_how));
-		ao_how->callback = async_callback;
-		ao_how->u.for_callback = (void *) p;
+value stub_libxl_domain_create_new(value ctx, value domain_config, value async)
+{
+	CAMLparam3(ctx, async, domain_config);
+	int ret = 0;
+	libxl_domain_config *c_dconfig = NULL;
+	uint32_t *c_domid = NULL;
+	AO_HOW_CREATE
+
+	c_dconfig = malloc(sizeof(*c_dconfig));
+	if (!c_dconfig) {
+		ret = ERROR_NOMEM;
+		goto done;
+	}
+	libxl_domain_config_init(c_dconfig);
+	ret = domain_config_val(CTX, c_dconfig, domain_config);
+	if (ret != 0)
+		goto done;
+
+	c_domid = malloc(sizeof(*c_domid));
+	if (!c_domid) {
+		ret = ERROR_NOMEM;
+		goto done;
 	}
 
-	CAMLreturnT(libxl_asyncop_how *, ao_how);
-}
-
-value stub_libxl_domain_create_new(value ctx, value domain_config, value async, value unit)
-{
-	CAMLparam4(ctx, async, domain_config, unit);
-	int ret;
-	libxl_domain_config c_dconfig;
-	uint32_t c_domid;
-	libxl_asyncop_how *ao_how;
-
-	libxl_domain_config_init(&c_dconfig);
-	ret = domain_config_val(CTX, &c_dconfig, domain_config);
-	if (ret != 0) {
-		libxl_domain_config_dispose(&c_dconfig);
-		failwith_xl(ret, "domain_create_new");
+	if (ao_how) {
+		for_callback->result = c_domid;
+		for_callback->dispose[0] = (void *) libxl_domain_config_dispose;
+		for_callback->dispose_data[0] = (void *) c_dconfig;
 	}
-
-	ao_how = aohow_val(async);
 
 	caml_enter_blocking_section();
-	ret = libxl_domain_create_new(CTX, &c_dconfig, &c_domid, ao_how, NULL);
+	ret = libxl_domain_create_new(CTX, c_dconfig, c_domid, ao_how, NULL);
 	caml_leave_blocking_section();
 
-	free(ao_how);
-	libxl_domain_config_dispose(&c_dconfig);
+done:
+	if (!ao_how || ret != 0) {
+		if (c_dconfig)
+			libxl_domain_config_dispose(c_dconfig);
+		free(c_dconfig);
+		free(c_domid);
+	}
 
 	if (ret != 0)
 		failwith_xl(ret, "domain_create_new");
 
-	CAMLreturn(Val_int(c_domid));
+	if (!ao_how)
+		CAMLreturn(Val_int(*c_domid));
+	else {
+		free(ao_how);
+		CAMLreturn(Val_unit);
+	}
 }
 
-value stub_libxl_domain_create_restore(value ctx, value domain_config, value params,
-	value async, value unit)
+value stub_libxl_domain_create_restore(value ctx, value domain_config, value params, value async)
 {
-	CAMLparam5(ctx, domain_config, params, async, unit);
-	int ret;
-	libxl_domain_config c_dconfig;
-	libxl_domain_restore_params c_params;
-	uint32_t c_domid;
-	libxl_asyncop_how *ao_how;
+	CAMLparam4(ctx, domain_config, params, async);
+	int ret = 0;
+	libxl_domain_config *c_dconfig = NULL;
+	libxl_domain_restore_params *c_params = NULL;
+	uint32_t *c_domid = NULL;
 	int restore_fd;
+	AO_HOW_CREATE
 
-	libxl_domain_config_init(&c_dconfig);
-	ret = domain_config_val(CTX, &c_dconfig, domain_config);
-	if (ret != 0) {
-		libxl_domain_config_dispose(&c_dconfig);
-		failwith_xl(ret, "domain_create_restore");
+	c_dconfig = malloc(sizeof(*c_dconfig));
+	if (!c_dconfig) {
+		ret = ERROR_NOMEM;
+		goto done;
+	}
+	libxl_domain_config_init(c_dconfig);
+	ret = domain_config_val(CTX, c_dconfig, domain_config);
+	if (ret != 0)
+		goto done;
+
+	c_params = malloc(sizeof(c_params));
+	if (!c_params) {
+		ret = ERROR_NOMEM;
+		goto done;
+	}
+	libxl_domain_restore_params_init(c_params);
+	ret = domain_restore_params_val(CTX, c_params, Field(params, 1));
+	if (ret != 0)
+		goto done;
+
+	c_domid = malloc(sizeof(*c_domid));
+	if (!c_domid) {
+		ret = ERROR_NOMEM;
+		goto done;
 	}
 
-	libxl_domain_restore_params_init(&c_params);
-	ret = domain_restore_params_val(CTX, &c_params, Field(params, 1));
-	if (ret != 0) {
-		libxl_domain_restore_params_dispose(&c_params);
-		failwith_xl(ret, "domain_create_restore");
-	}
-
-	ao_how = aohow_val(async);
 	restore_fd = Int_val(Field(params, 0));
 
+	if (ao_how) {
+		for_callback->result = c_domid;
+		for_callback->dispose[0] = (void *) libxl_domain_config_dispose;
+		for_callback->dispose_data[0] = (void *) c_dconfig;
+		for_callback->dispose[1] = (void *) libxl_domain_restore_params_dispose;
+		for_callback->dispose_data[1] = (void *) c_params;
+	}
+
 	caml_enter_blocking_section();
-	ret = libxl_domain_create_restore(CTX, &c_dconfig, &c_domid, restore_fd,
-		&c_params, ao_how, NULL);
+	ret = libxl_domain_create_restore(CTX, c_dconfig, c_domid, restore_fd,
+		c_params, ao_how, NULL);
 	caml_leave_blocking_section();
 
-	free(ao_how);
-	libxl_domain_config_dispose(&c_dconfig);
-	libxl_domain_restore_params_dispose(&c_params);
+done:
+	if (!ao_how || ret != 0) {
+		if (c_dconfig)
+			libxl_domain_config_dispose(c_dconfig);
+		if (c_params)
+			libxl_domain_restore_params_dispose(c_params);
+		free(c_dconfig);
+		free(c_params);
+		free(c_domid);
+	}
 
 	if (ret != 0)
 		failwith_xl(ret, "domain_create_restore");
 
-	CAMLreturn(Val_int(c_domid));
+	if (!ao_how)
+		CAMLreturn(Val_int(*c_domid));
+	else {
+		free(ao_how);
+		CAMLreturn(Val_unit);
+	}
 }
 
 value stub_libxl_domain_shutdown(value ctx, value domid)
@@ -583,12 +693,12 @@ value stub_libxl_domain_reboot(value ctx, value domid)
 	CAMLreturn(Val_unit);
 }
 
-value stub_libxl_domain_destroy(value ctx, value domid, value async, value unit)
+value stub_libxl_domain_destroy(value ctx, value domid, value async)
 {
-	CAMLparam4(ctx, domid, async, unit);
+	CAMLparam3(ctx, domid, async);
 	int ret;
 	uint32_t c_domid = Int_val(domid);
-	libxl_asyncop_how *ao_how = aohow_val(async);
+	AO_HOW_CREATE
 
 	caml_enter_blocking_section();
 	ret = libxl_domain_destroy(CTX, c_domid, ao_how);
@@ -602,13 +712,13 @@ value stub_libxl_domain_destroy(value ctx, value domid, value async, value unit)
 	CAMLreturn(Val_unit);
 }
 
-value stub_libxl_domain_suspend(value ctx, value domid, value fd, value async, value unit)
+value stub_libxl_domain_suspend(value ctx, value domid, value fd, value async)
 {
-	CAMLparam5(ctx, domid, fd, async, unit);
+	CAMLparam4(ctx, domid, fd, async);
 	int ret;
 	uint32_t c_domid = Int_val(domid);
 	int c_fd = Int_val(fd);
-	libxl_asyncop_how *ao_how = aohow_val(async);
+	AO_HOW_CREATE
 
 	caml_enter_blocking_section();
 	ret = libxl_domain_suspend(CTX, c_domid, c_fd, 0, ao_how);
@@ -659,22 +769,39 @@ value stub_libxl_domain_unpause(value ctx, value domid)
 
 #define _DEVICE_ADDREMOVE(type,fn,op)					\
 value stub_xl_device_##type##_##op(value ctx, value info, value domid,	\
-	value async, value unit)					\
+	value async)							\
 {									\
-	CAMLparam5(ctx, info, domid, async, unit);			\
-	libxl_device_##type c_info;					\
-	int ret, marker_var;						\
+	CAMLparam4(ctx, info, domid, async);				\
+	libxl_device_##type *c_info = NULL;				\
+	int ret = 0;							\
 	uint32_t c_domid = Int_val(domid);				\
-	libxl_asyncop_how *ao_how = aohow_val(async);			\
+	AO_HOW_CREATE							\
 									\
-	device_##type##_val(CTX, &c_info, info);			\
+	c_info = malloc(sizeof(*c_info));				\
+	if (!c_info) {							\
+		ret = ERROR_NOMEM;					\
+		goto done;						\
+	}								\
+	device_##type##_val(CTX, c_info, info);				\
+									\
+	if (ao_how) {							\
+		for_callback->dispose[0] =				\
+			(void *) libxl_device_##type##_dispose;		\
+		for_callback->dispose_data[0] = (void *) c_info;	\
+	}								\
 									\
 	caml_enter_blocking_section();					\
-	ret = libxl_##fn##_##op(CTX, c_domid, &c_info, ao_how);		\
+	ret = libxl_##fn##_##op(CTX, c_domid, c_info, ao_how);		\
 	caml_leave_blocking_section();					\
 									\
+									\
+done:									\
+	if (!ao_how || ret != 0) {					\
+		if (c_info)						\
+			libxl_device_##type##_dispose(c_info);		\
+		free(c_info);						\
+	}								\
 	free(ao_how);							\
-	libxl_device_##type##_dispose(&c_info);				\
 									\
 	if (ret != 0)							\
 		failwith_xl(ret, STRINGIFY(type) "_" STRINGIFY(op));	\

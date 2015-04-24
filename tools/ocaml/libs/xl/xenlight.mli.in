@@ -17,6 +17,10 @@ type ctx
 type domid = int
 type devid = int
 
+type ('a, 'b) result =
+	| Ok of 'a
+	| Fail of 'b
+
 (* @@LIBXL_TYPES@@ *)
 
 exception Error of (error * string)
@@ -36,13 +40,21 @@ type event =
 	| POLLNVAL (* Invalid request: fd not open (revents only). *)
 
 module Domain : sig
-	external create_new : ctx -> Domain_config.t -> ?async:'a -> unit -> domid = "stub_libxl_domain_create_new"
-	external create_restore : ctx -> Domain_config.t -> (Unix.file_descr * Domain_restore_params.t) ->
-		?async:'a -> unit -> domid = "stub_libxl_domain_create_restore"
+	val create_new : ctx -> Domain_config.t -> domid
+	val create_new_async : ctx -> Domain_config.t -> ((domid, error) result -> unit) -> unit
+
+	val create_restore : ctx -> Domain_config.t -> (Unix.file_descr * Domain_restore_params.t) -> domid
+	val create_restore_async : ctx -> Domain_config.t -> (Unix.file_descr * Domain_restore_params.t) -> ((domid, error) result -> unit) -> unit
+
 	external shutdown : ctx -> domid -> unit = "stub_libxl_domain_shutdown"
 	external reboot : ctx -> domid -> unit = "stub_libxl_domain_reboot"
-	external destroy : ctx -> domid -> ?async:'a -> unit -> unit = "stub_libxl_domain_destroy"
-	external suspend : ctx -> domid -> Unix.file_descr -> ?async:'a -> unit -> unit = "stub_libxl_domain_suspend"
+
+	val destroy : ctx -> domid -> unit
+	val destroy_async : ctx -> domid -> ((unit, error) result -> unit) -> unit
+	
+	val suspend : ctx -> domid -> Unix.file_descr -> unit
+	val suspend_async : ctx -> domid -> Unix.file_descr -> ((unit, error) result -> unit) -> unit
+
 	external pause : ctx -> domid -> unit = "stub_libxl_domain_pause"
 	external unpause : ctx -> domid -> unit = "stub_libxl_domain_unpause"
 
@@ -78,9 +90,7 @@ module Async : sig
 	external osevent_occurred_fd : ctx -> for_libxl -> Unix.file_descr -> event list -> event list -> unit = "stub_libxl_osevent_occurred_fd"
 	external osevent_occurred_timeout : ctx -> for_libxl -> unit = "stub_libxl_osevent_occurred_timeout"
 
-	val async_register_callback :
-		async_callback:(result:error option -> user:'a -> unit) ->
-		unit
+	val async_register_callbacks: unit -> unit
 
 	external evenable_domain_death : ctx -> domid -> int -> unit = "stub_libxl_evenable_domain_death"
 

@@ -23,38 +23,38 @@ builtins = {
     "libxl_cpuid_policy_list": ("unit",                "%(c)s = 0",                         "Val_unit"),
     }
 
-DEVICE_FUNCTIONS = [ ("add",            ["ctx", "t", "domid", "?async:'a", "unit", "unit"]),
-                     ("remove",         ["ctx", "t", "domid", "?async:'a", "unit", "unit"]),
-                     ("destroy",        ["ctx", "t", "domid", "?async:'a", "unit", "unit"]),
+DEVICE_FUNCTIONS = [ ("add",            ["ctx", "t", "domid", "unit"], True),
+                     ("remove",         ["ctx", "t", "domid", "unit"], True),
+                     ("destroy",        ["ctx", "t", "domid", "unit"], True),
                    ]
-DEVICE_LIST =      [ ("list",           ["ctx", "domid", "t list"]),
+DEVICE_LIST =      [ ("list",           ["ctx", "domid", "t list"],    False),
                    ]
 
-functions = { # ( name , [type1,type2,....] )
+functions = { # ( name , [type1,type2,....] , generate async version )
     "device_vfb":     DEVICE_FUNCTIONS,
     "device_vkb":     DEVICE_FUNCTIONS,
     "device_disk":    DEVICE_FUNCTIONS + DEVICE_LIST +
-                      [ ("insert",         ["ctx", "t", "domid", "?async:'a", "unit", "unit"]),
-                        ("of_vdev",        ["ctx", "domid", "string", "t"]),
+                      [ ("insert",         ["ctx", "t", "domid", "unit"],   True),
+                        ("of_vdev",        ["ctx", "domid", "string", "t"], False),
                       ],
     "device_nic":     DEVICE_FUNCTIONS + DEVICE_LIST +
-                      [ ("of_devid",       ["ctx", "domid", "int", "t"]),
+                      [ ("of_devid",       ["ctx", "domid", "int", "t"],    False),
                       ],
     "device_pci":     DEVICE_FUNCTIONS + DEVICE_LIST +
-                      [ ("assignable_add",    ["ctx", "t", "bool", "unit"]),
-                        ("assignable_remove", ["ctx", "t", "bool", "unit"]),
-                        ("assignable_list",   ["ctx", "t list"]),
+                      [ ("assignable_add",    ["ctx", "t", "bool", "unit"], False),
+                        ("assignable_remove", ["ctx", "t", "bool", "unit"], False),
+                        ("assignable_list",   ["ctx", "t list"],            False),
                       ],
-    "dominfo":        [ ("list",           ["ctx", "t list"]),
-                        ("get",            ["ctx", "domid", "t"]),
+    "dominfo":        [ ("list",           ["ctx", "t list"],               False),
+                        ("get",            ["ctx", "domid", "t"],           False),
                       ],
-    "physinfo":       [ ("get",            ["ctx", "t"]),
+    "physinfo":       [ ("get",            ["ctx", "t"],                    False),
                       ],
-    "cputopology":    [ ("get",            ["ctx", "t array"]),
+    "cputopology":    [ ("get",            ["ctx", "t array"],              False),
                       ],
     "domain_sched_params":
-                      [ ("get",            ["ctx", "domid", "t"]),
-                        ("set",            ["ctx", "domid", "t", "unit"]),
+                      [ ("get",            ["ctx", "domid", "t"],           False),
+                        ("set",            ["ctx", "domid", "t", "unit"],   False),
                       ],
 }
 def stub_fn_name(ty, name):
@@ -225,10 +225,28 @@ def gen_ocaml_ml(ty, interface, indent=""):
                 s += "\texternal default : ctx -> %sunit -> t = \"stub_libxl_%s_init\"\n" % (union_args, ty.rawname)
 
         if functions.has_key(ty.rawname):
-            for name,args in functions[ty.rawname]:
-                s += "\texternal %s : " % name
-                s += " -> ".join(args)
-                s += " = \"%s\"\n" % stub_fn_name(ty,name)
+            for name,args,async in functions[ty.rawname]:
+                if not async:
+                    s += "\texternal %s : " % name
+                    s += " -> ".join(args)
+                    s += " = \"%s\"\n" % stub_fn_name(ty,name)
+                elif interface:
+                    s += "\tval %s : " % name
+                    s += " -> ".join(args)
+                    s += "\n"
+                    s += "\tval %s_async : " % name
+                    s += " -> ".join(args[:-1] + ["((unit, error) result -> unit)"] + args[-1:])
+                    s += "\n"
+                else:
+                    s += "\texternal %s' : " % name
+                    s += " -> ".join(args[:-1] + ["async:'a option"] + args[-1:])
+                    s += " = \"%s\"\n" % stub_fn_name(ty,name)
+                    s += "\tlet %s = %s' ~async:None\n" % (name, name)
+                    s += "\tlet %s_async " % name
+                    s += " ".join(args[:-1] + ["callback"])
+                    s += " =\n"
+                    s += "\t\tlet index = Callback_unit.register callback in\n"
+                    s += "\t\t%s' %s ~async:(Some index)\n" % (name, " ".join(args[:-1]))
         
         s += "end\n"
 
@@ -442,15 +460,6 @@ def gen_Val_ocaml(ty, indent=""):
     s += "}\n"
     return s.replace("\n", "\n%s" % indent)
 
-def gen_c_stub_prototype(ty, fns):
-    s = "/* Stubs for %s */\n" % ty.rawname
-    for name,args in fns:        
-        # For N args we return one value and take N-1 values as parameters
-        s += "value %s(" % stub_fn_name(ty, name)
-        s += ", ".join(["value v%d" % v for v in range(1,len(args))])
-        s += ");\n"
-    return s
-
 def gen_c_default(ty):
     s = "/* Get the defaults for %s */\n" % ty.rawname
     # Handle KeyedUnions...
@@ -493,7 +502,7 @@ def autogen_header(open_comment, close_comment):
 
 if __name__ == '__main__':
     if len(sys.argv) < 4:
-        print >>sys.stderr, "Usage: genwrap.py <idl> <mli> <ml> <c-inc>"
+        print >>sys.stderr, "Usage: genwrap.py <idl> <mli> <ml-types> <ml-modules> <c-inc>"
         sys.exit(1)
 
     (_,types) = idl.parse(sys.argv[1])
@@ -510,15 +519,19 @@ if __name__ == '__main__':
 
     types = [ty for ty in types if not ty.rawname in blacklist]
     
-    _ml = sys.argv[3]
-    ml = open(_ml, 'w')
-    ml.write(autogen_header("(*", "*)"))
+    _mlt = sys.argv[3]
+    mlt = open(_mlt, 'w')
+    mlt.write(autogen_header("(*", "*)"))
+
+    _mlm = sys.argv[4]
+    mlm = open(_mlm, 'w')
+    mlm.write(autogen_header("(*", "*)"))
 
     _mli = sys.argv[2]
     mli = open(_mli, 'w')
     mli.write(autogen_header("(*", "*)"))
     
-    _cinc = sys.argv[4]
+    _cinc = sys.argv[5]
     cinc = open(_cinc, 'w')
     cinc.write(autogen_header("/*", "*/"))
 
@@ -526,8 +539,12 @@ if __name__ == '__main__':
         if ty.private:
             continue
         #sys.stdout.write(" TYPE    %-20s " % ty.rawname)
-        ml.write(gen_ocaml_ml(ty, False))
-        ml.write("\n")
+        if isinstance(ty, idl.Enumeration):
+            mlt.write(gen_ocaml_ml(ty, False))
+            mlt.write("\n")
+        else:
+            mlm.write(gen_ocaml_ml(ty, False))
+            mlm.write("\n")
 
         mli.write(gen_ocaml_ml(ty, True))
         mli.write("\n")
@@ -538,15 +555,16 @@ if __name__ == '__main__':
         cinc.write(gen_Val_ocaml(ty))
         cinc.write("\n")
         if functions.has_key(ty.rawname):
-            cinc.write(gen_c_stub_prototype(ty, functions[ty.rawname]))
             cinc.write("\n")
         if ty.init_fn is not None:
             cinc.write(gen_c_defaults(ty))
             cinc.write("\n")
         #sys.stdout.write("\n")
     
-    ml.write("(* END OF AUTO-GENERATED CODE *)\n")
-    ml.close()
+    mlt.write("(* END OF AUTO-GENERATED CODE *)\n")
+    mlt.close()
+    mlm.write("(* END OF AUTO-GENERATED CODE *)\n")
+    mlm.close()
     mli.write("(* END OF AUTO-GENERATED CODE *)\n")
     mli.close()
     cinc.close()
