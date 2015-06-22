@@ -44,26 +44,67 @@ MemKB = UInt(64, init_val = "LIBXL_MEMKB_DEFAULT", json_gen_fn = "libxl__uint64_
 #
 
 libxl_error = Enumeration("error", [
+    # Generic failure; code should be avoided (often seen as "rc = -1")
     (-1, "NONSPECIFIC"),
+    
+    # Libxl version mismatch
     (-2, "VERSION"),
+    
+    # General failure; code should be avoided
     (-3, "FAIL"),
+    
+    # Not implemented
     (-4, "NI"),
+    
+    # Out of memory (malloc or similar failed)
     (-5, "NOMEM"),
+    
+    # General failure; code should be avoided
     (-6, "INVAL"),
+    
+    # General failure; code should be avoided (used only in "xl")
     (-7, "BADFAIL"),
+    
+    # Domain responded to suspend request
     (-8, "GUEST_TIMEDOUT"),
+    
+    # A xenstore watch has timed out
     (-9, "TIMEDOUT"),
+    
+    # The operation requires PV control, but the domain does not offer it
     (-10, "NOPARAVIRT"),
+    
+    # Event has not happened (libxl_event_check)
     (-11, "NOT_READY"),
+    
+    # osevent registration or modification hook failed
     (-12, "OSEVENT_REG_FAIL"),
+    
+    # fd buffer full (libxl_osevent_beforepoll)
     (-13, "BUFFERFULL"),
+    
+    # Process is not a child of the current libxl instance (libxl_childproc_reaped)
     (-14, "UNKNOWN_CHILD"),
+    
+    # Could not acquire lock
     (-15, "LOCK_FAIL"),
+    
+    # Unable to find JSON domain config
     (-16, "JSON_CONFIG_EMPTY"),
+    
+    # The requested device already exists
     (-17, "DEVICE_EXISTS"),
+    
+    # Remus ops do not match device
     (-18, "REMUS_DEVOPS_DOES_NOT_MATCH"),
+    
+    # Remus device not supported
     (-19, "REMUS_DEVICE_NOT_SUPPORTED"),
+    
+    # vNUMA config not valid
     (-20, "VNUMA_CONFIG_INVALID"),
+    
+    # Requested domain was not found
     (-21, "DOMAIN_NOTFOUND"),
     ], value_namespace = "")
 
