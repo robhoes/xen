@@ -89,7 +89,7 @@ int libxl_ctx_alloc(libxl_ctx **pctx, int version,
         LIBXL__LOG(ctx, LIBXL__LOG_ERROR, "Failed to initialize mutex");
         free(ctx);
         ctx = 0;
-        rc = ERROR_FAIL;
+        rc = ERROR_LOCK_FAIL;
         goto out;
     }
 
@@ -107,7 +107,7 @@ int libxl_ctx_alloc(libxl_ctx **pctx, int version,
     ctx->xch = xc_interface_open(lg,lg,0);
     if (!ctx->xch) {
         LOGEV(ERROR, errno, "cannot open libxc handle");
-        rc = ERROR_FAIL; goto out;
+        rc = ERROR_XC_CONNECT; goto out;
     }
 
     ctx->xsh = xs_daemon_open();
@@ -115,7 +115,7 @@ int libxl_ctx_alloc(libxl_ctx **pctx, int version,
         ctx->xsh = xs_domain_open();
     if (!ctx->xsh) {
         LOGEV(ERROR, errno, "cannot connect to xenstore");
-        rc = ERROR_FAIL; goto out;
+        rc = ERROR_XS_CONNECT; goto out;
     }
 
     *pctx = ctx;

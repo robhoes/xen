@@ -114,6 +114,9 @@ libxl_error = Enumeration("error", [
     (ENUM_PREV, "XS_TRANS_START"),
     (ENUM_PREV, "XS_TRANS_COMMIT"),
     (ENUM_PREV, "XS_REMOVE"),
+        
+    # libxc connection error
+    (ENUM_PREV, "XC_CONNECT"),
     ], value_namespace = "")
 
 libxl_domain_type = Enumeration("domain_type", [

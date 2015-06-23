@@ -740,7 +740,7 @@ int libxl__ctx_evtchn_init(libxl__gc *gc) {
     xce = xc_evtchn_open(CTX->lg, 0);
     if (!xce) {
         LOGE(ERROR,"cannot open libxc evtchn handle");
-        rc = ERROR_FAIL;
+        rc = ERROR_XC_CONNECT;
         goto out;
     }
 
