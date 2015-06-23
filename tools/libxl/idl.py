@@ -8,6 +8,9 @@ DIR_IN   = 1
 DIR_OUT  = 2
 DIR_BOTH = 3
 
+ENUM_NEXT = sys.maxint
+ENUM_PREV = sys.maxint - 1
+
 _default_namespace = ""
 def namespace(s):
     if type(s) != str:
@@ -174,9 +177,18 @@ class Enumeration(Type):
             self.namespace)
 
         self.values = []
+        last = None
         for v in values:
             # (value, name)
             (num,name) = v
+            if num == ENUM_NEXT or num == ENUM_PREV:
+            	if last == None:
+            		raise ValueError
+            	elif num == ENUM_NEXT:
+            		num = last + 1
+            	else:
+            		num = last - 1
+            last = num
             self.values.append(EnumerationValue(self, num, name,
                                                 typename=self.rawname))
     def lookup(self, name):
@@ -354,6 +366,7 @@ def parse(f):
             globs[n] = t
         elif n in ['PASS_BY_REFERENCE', 'PASS_BY_VALUE',
                    'DIR_NONE', 'DIR_IN', 'DIR_OUT', 'DIR_BOTH',
+                   'ENUM_NEXT', 'ENUM_PREV',
                    'namespace', 'hidden']:
             globs[n] = t
 
