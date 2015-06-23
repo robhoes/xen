@@ -2323,7 +2323,7 @@ int libxl__userdata_store(libxl__gc *gc, uint32_t domid,
         goto out;
     }
 
-    rc = ERROR_FAIL;
+    rc = ERROR_JSON_SET_CONFIG;
 
     fd = open(newfilename, O_RDWR | O_CREAT | O_TRUNC, 0600);
     if (fd < 0)
@@ -2400,13 +2400,13 @@ int libxl__userdata_retrieve(libxl__gc *gc, uint32_t domid,
 
     e = libxl_read_file_contents(CTX, filename, data_r ? &data : 0, &datalen);
     if (e && errno != ENOENT) {
-        rc = ERROR_FAIL;
+        rc = ERROR_JSON_GET_CONFIG;
         goto out;
     }
     if (!e && !datalen) {
         LIBXL__LOG(CTX, LIBXL__LOG_ERROR, "userdata file %s is empty", filename);
         if (data_r) assert(!*data_r);
-        rc = ERROR_FAIL;
+        rc = ERROR_JSON_GET_CONFIG;
         goto out;
     }
 

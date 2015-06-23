@@ -1044,14 +1044,14 @@ int libxl__object_from_json(libxl_ctx *ctx, const char *type,
         LOG(ERROR,
             "unable to generate libxl__json_object from JSON representation of %s.",
             type);
-        rc = ERROR_FAIL;
+        rc = ERROR_JSON_PARSE_CONFIG;
         goto out;
     }
 
     rc = parse(gc, o, p);
     if (rc) {
         LOG(ERROR, "unable to convert libxl__json_object to %s. (rc=%d)", type, rc);
-        rc = ERROR_FAIL;
+        rc = ERROR_JSON_PARSE_CONFIG;
         goto out;
     }
 

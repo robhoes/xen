@@ -117,6 +117,11 @@ libxl_error = Enumeration("error", [
         
     # libxc connection error
     (ENUM_PREV, "XC_CONNECT"),
+    
+    # JSON domain config errors
+    (ENUM_PREV, "JSON_GET_CONFIG"),
+    (ENUM_PREV, "JSON_SET_CONFIG"),
+    (ENUM_PREV, "JSON_PARSE_CONFIG"),
     ], value_namespace = "")
 
 libxl_domain_type = Enumeration("domain_type", [

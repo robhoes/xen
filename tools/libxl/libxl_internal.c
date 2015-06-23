@@ -500,7 +500,6 @@ int libxl__get_domain_configuration(libxl__gc *gc, uint32_t domid,
     if (rc) {
         LOGEV(ERROR, rc,
               "failed to retrieve domain configuration for domain %d", domid);
-        rc = ERROR_FAIL;
         goto out;
     }
 
@@ -527,7 +526,7 @@ int libxl__set_domain_configuration(libxl__gc *gc, uint32_t domid,
         LOGE(ERROR,
              "failed to convert domain configuration to JSON for domain %d",
              domid);
-        rc = ERROR_FAIL;
+        rc = ERROR_JSON_SET_CONFIG;
         goto out;
     }
 
@@ -537,7 +536,6 @@ int libxl__set_domain_configuration(libxl__gc *gc, uint32_t domid,
     if (rc) {
         LOGEV(ERROR, rc, "failed to store domain configuration for domain %d",
               domid);
-        rc = ERROR_FAIL;
         goto out;
     }
 
