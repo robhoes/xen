@@ -384,7 +384,7 @@ int libxl__hotplug_settings(libxl__gc *gc, xs_transaction_t t)
     val = libxl__xs_read(gc, t, DISABLE_UDEV_PATH);
     if (!val && errno != ENOENT) {
         LOGE(ERROR, "cannot read %s from xenstore", DISABLE_UDEV_PATH);
-        rc = ERROR_FAIL;
+        rc = ERROR_XS_READ;
         goto out;
     }
     if (!val) val = "0";

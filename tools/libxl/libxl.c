@@ -3278,7 +3278,7 @@ int libxl__device_nic_setdefault(libxl__gc *gc, libxl_device_nic *nic,
     }
     if ( !nic->script && asprintf(&nic->script, "%s/vif-bridge",
                                   libxl__xen_script_dir_path()) < 0 )
-        return ERROR_FAIL;
+        return ERROR_NIC_SCRIPT_UNDETERMINED;
 
     run_hotplug_scripts = libxl__hotplug_settings(gc, XBT_NULL);
     if (run_hotplug_scripts < 0) {
@@ -3297,12 +3297,12 @@ int libxl__device_nic_setdefault(libxl__gc *gc, libxl_device_nic *nic,
     case LIBXL_DOMAIN_TYPE_PV:
         if (nic->nictype == LIBXL_NIC_TYPE_VIF_IOEMU) {
             LOG(ERROR, "trying to create PV guest with an emulated interface");
-            return ERROR_INVAL;
+            return ERROR_NOHVM;
         }
         nic->nictype = LIBXL_NIC_TYPE_VIF;
         break;
     case LIBXL_DOMAIN_TYPE_INVALID:
-        return ERROR_FAIL;
+        return ERROR_INVAL_DOMAIN_TYPE;
     default:
         abort();
     }
@@ -3349,7 +3349,7 @@ void libxl__device_nic_add(libxl__egc *egc, uint32_t domid,
 
     if (nic->devid == -1) {
         if ((nic->devid = libxl__device_nextid(gc, domid, "vif")) < 0) {
-            rc = ERROR_FAIL;
+            rc = ERROR_NIC_DEVID_UNDETERMINED;
             goto out;
         }
     }

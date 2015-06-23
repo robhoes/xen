@@ -146,6 +146,10 @@ libxl_error = Enumeration("error", [
     (ENUM_PREV, "DISK_PDEV_NOT_FOUND"),
     (ENUM_PREV, "DISK_VDEV_NOT_FOUND"),
     
+    # NIC parameters could not be determined
+    (ENUM_PREV, "NIC_SCRIPT_UNDETERMINED"),
+    (ENUM_PREV, "NIC_DEVID_UNDETERMINED"),
+    
     # Operation requires an HVM domain
     (ENUM_PREV, "NOHVM"),
 
