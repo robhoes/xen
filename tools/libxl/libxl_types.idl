@@ -107,6 +107,10 @@ libxl_error = Enumeration("error", [
     # Requested domain was not found
     (-21, "DOMAIN_NOTFOUND"),
     
+    # Internal error; not actionable by the caller other than by doing something like
+    # a retry/reboot (perhaps a libxl bug)
+    (ENUM_PREV, "INTERNAL"),
+    
     # Xenstore errors
     (ENUM_PREV, "XS_CONNECT"),
     (ENUM_PREV, "XS_READ"),
@@ -132,12 +136,28 @@ libxl_error = Enumeration("error", [
     # Disk parameters invalid
     (ENUM_PREV, "INVAL_DISK_VDEV"),
     (ENUM_PREV, "INVAL_DISK_BACKEND"),
+    (ENUM_PREV, "INVAL_DISK_FORMAT"),
     
     # Disk parameters could not be determined
     (ENUM_PREV, "DISK_VDEV_UNDETERMINED"),
+    (ENUM_PREV, "DISK_BACKEND_UNDETERMINED"),
     
-    # Physical disk device could not be found
+    # Physical/virtual disk device could not be found
     (ENUM_PREV, "DISK_PDEV_NOT_FOUND"),
+    (ENUM_PREV, "DISK_VDEV_NOT_FOUND"),
+    
+    # Operation requires an HVM domain
+    (ENUM_PREV, "NOHVM"),
+
+    # Operation is not compatible with a stub domain
+    (ENUM_PREV, "STUBDOM"),
+    
+    # Device model version could not be determined
+    (ENUM_PREV, "DM_VERSION_UNDETERMINED"),
+    
+    # QMP errors
+    (ENUM_PREV, "QMP_INIT"),
+    (ENUM_PREV, "QMP_SEND"),
     ], value_namespace = "")
 
 libxl_domain_type = Enumeration("domain_type", [

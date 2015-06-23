@@ -817,9 +817,11 @@ static int qmp_run_command(libxl__gc *gc, int domid,
 
     qmp = libxl__qmp_initialize(gc, domid);
     if (!qmp)
-        return ERROR_FAIL;
+        return ERROR_QMP_INIT;
 
     rc = qmp_synchronous_send(qmp, cmd, args, callback, opaque, qmp->timeout);
+    if (rc < 0)
+        rc = ERROR_QMP_SEND;
 
     libxl__qmp_close(qmp);
     return rc;

@@ -271,7 +271,7 @@ int libxl__device_disk_set_backend(libxl__gc *gc, libxl_device_disk *disk) {
     if (disk->format == LIBXL_DISK_FORMAT_EMPTY) {
         if (!disk->is_cdrom) {
             LOG(ERROR, "Disk vdev=%s is empty but not cdrom", disk->vdev);
-            return ERROR_INVAL;
+            return ERROR_INVAL_DISK_FORMAT;
         }
         memset(&a.stab, 0, sizeof(a.stab));
     } else if ((disk->backend == LIBXL_DISK_BACKEND_UNKNOWN ||
@@ -281,7 +281,7 @@ int libxl__device_disk_set_backend(libxl__gc *gc, libxl_device_disk *disk) {
         if (stat(disk->pdev_path, &a.stab)) {
             LOGE(ERROR, "Disk vdev=%s failed to stat: %s",
                         disk->vdev, disk->pdev_path);
-            return ERROR_INVAL;
+            return ERROR_DISK_PDEV_NOT_FOUND;
         }
     }
 
@@ -299,7 +299,7 @@ int libxl__device_disk_set_backend(libxl__gc *gc, libxl_device_disk *disk) {
     }
     if (!ok) {
         LOG(ERROR, "no suitable backend for disk %s", disk->vdev);
-        return ERROR_INVAL;
+        return ERROR_DISK_BACKEND_UNDETERMINED;
     }
     disk->backend = ok;
     return 0;

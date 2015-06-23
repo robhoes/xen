@@ -2848,25 +2848,25 @@ int libxl_cdrom_insert(libxl_ctx *ctx, uint32_t domid, libxl_device_disk *disk,
 
     libxl_domain_type type = libxl__domain_type(gc, domid);
     if (type == LIBXL_DOMAIN_TYPE_INVALID) {
-        rc = ERROR_FAIL;
+        rc = ERROR_INVAL_DOMAIN_TYPE;
         goto out;
     }
     if (type != LIBXL_DOMAIN_TYPE_HVM) {
         LOG(ERROR, "cdrom-insert requires an HVM domain");
-        rc = ERROR_INVAL;
+        rc = ERROR_NOHVM;
         goto out;
     }
 
     if (libxl_get_stubdom_id(ctx, domid) != 0) {
         LOG(ERROR, "cdrom-insert doesn't work for stub domains");
-        rc = ERROR_INVAL;
+        rc = ERROR_STUBDOM;
         goto out;
     }
 
     dm_ver = libxl__device_model_version_running(gc, domid);
     if (dm_ver == -1) {
         LOG(ERROR, "cannot determine device model version");
-        rc = ERROR_FAIL;
+        rc = ERROR_DM_VERSION_UNDETERMINED;
         goto out;
     }
 
@@ -2881,7 +2881,7 @@ int libxl_cdrom_insert(libxl_ctx *ctx, uint32_t domid, libxl_device_disk *disk,
     }
     if (i == num) {
         LIBXL__LOG(ctx, LIBXL__LOG_ERROR, "Virtual device not found");
-        rc = ERROR_FAIL;
+        rc = ERROR_DISK_VDEV_NOT_FOUND;
         goto out;
     }
 
@@ -2941,7 +2941,7 @@ int libxl_cdrom_insert(libxl_ctx *ctx, uint32_t domid, libxl_device_disk *disk,
         {
             LIBXL__LOG(ctx, LIBXL__LOG_ERROR, "Internal error: %s does not exist",
                        libxl__sprintf(gc, "%s/frontend", path));
-            rc = ERROR_FAIL;
+            rc = ERROR_INTERNAL;
             goto out;
         }
 
