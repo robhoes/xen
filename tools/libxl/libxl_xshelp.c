@@ -174,7 +174,7 @@ int libxl__xs_read_checked(libxl__gc *gc, xs_transaction_t t,
     if (!result) {
         if (errno != ENOENT) {
             LOGE(ERROR, "xenstore read failed: `%s'", path);
-            return ERROR_FAIL;
+            return ERROR_XS_READ;
         }
     }
     *result_out = result;
@@ -187,7 +187,7 @@ int libxl__xs_write_checked(libxl__gc *gc, xs_transaction_t t,
     size_t length = strlen(string);
     if (!xs_write(CTX->xsh, t, path, string, length)) {
         LOGE(ERROR, "xenstore write failed: `%s' = `%s'", path, string);
-        return ERROR_FAIL;
+        return ERROR_XS_WRITE;
     }
     return 0;
 }
@@ -199,7 +199,7 @@ int libxl__xs_rm_checked(libxl__gc *gc, xs_transaction_t t, const char *path)
             return 0;
 
         LOGE(ERROR, "xenstore rm failed: `%s'", path);
-        return ERROR_FAIL;
+        return ERROR_XS_REMOVE;
     }
     return 0;
 }
@@ -210,7 +210,7 @@ int libxl__xs_transaction_start(libxl__gc *gc, xs_transaction_t *t)
     *t = xs_transaction_start(CTX->xsh);
     if (!*t) {
         LOGE(ERROR, "could not create xenstore transaction");
-        return ERROR_FAIL;
+        return ERROR_XS_TRANS_START;
     }
     return 0;
 }
@@ -225,7 +225,7 @@ int libxl__xs_transaction_commit(libxl__gc *gc, xs_transaction_t *t)
             return +1;
 
         LOGE(ERROR, "could not commit xenstore transaction");
-        return ERROR_FAIL;
+        return ERROR_XS_TRANS_COMMIT;
     }
 
     *t = 0;
@@ -257,7 +257,7 @@ int libxl__xs_path_cleanup(libxl__gc *gc, xs_transaction_t t,
     if (!xs_rm(CTX->xsh, t, path)) {
         if (errno != ENOENT)
             LOGE(DEBUG, "unable to remove path %s", path);
-        rc = ERROR_FAIL;
+        rc = ERROR_XS_REMOVE;
         goto out;
     }
 
@@ -274,7 +274,7 @@ int libxl__xs_path_cleanup(libxl__gc *gc, xs_transaction_t t,
         if (!xs_rm(CTX->xsh, t, path)) {
             if (errno != ENOENT)
                 LOGE(DEBUG, "unable to remove path %s", path);
-            rc = ERROR_FAIL;
+            rc = ERROR_XS_REMOVE;
             goto out;
         }
     }
