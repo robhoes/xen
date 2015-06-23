@@ -125,6 +125,19 @@ libxl_error = Enumeration("error", [
     
     # Unable to initialise device connection watch
     (ENUM_PREV, "DEVICE_WAIT_INIT"),
+    
+    # Domain type invalid
+    (ENUM_PREV, "INVAL_DOMAIN_TYPE"),
+    
+    # Disk parameters invalid
+    (ENUM_PREV, "INVAL_DISK_VDEV"),
+    (ENUM_PREV, "INVAL_DISK_BACKEND"),
+    
+    # Disk parameters could not be determined
+    (ENUM_PREV, "DISK_VDEV_UNDETERMINED"),
+    
+    # Physical disk device could not be found
+    (ENUM_PREV, "DISK_PDEV_NOT_FOUND"),
     ], value_namespace = "")
 
 libxl_domain_type = Enumeration("domain_type", [

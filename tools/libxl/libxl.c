@@ -2008,9 +2008,16 @@ static int libxl__device_nextid(libxl__gc *gc, uint32_t domid, char *device)
 static int libxl__resolve_domid(libxl__gc *gc, const char *name,
                                 uint32_t *domid)
 {
+    int rc;
     if (!name)
         return 0;
-    return libxl_domain_qualifier_to_domid(CTX, name, domid);
+
+    rc = libxl_domain_qualifier_to_domid(CTX, name, domid);
+
+    if (rc < 0)
+        return ERROR_DOMAIN_NOTFOUND;
+    else
+        return rc;
 }
 
 /******************************************************************************/
@@ -2326,7 +2333,7 @@ int libxl__device_from_disk(libxl__gc *gc, uint32_t domid,
     if (devid==-1) {
         LIBXL__LOG(ctx, LIBXL__LOG_ERROR, "Invalid or unsupported"
                " virtual disk identifier %s", disk->vdev);
-        return ERROR_INVAL;
+        return ERROR_INVAL_DISK_VDEV;
     }
 
     device->backend_domid = disk->backend_domid;
@@ -2345,7 +2352,7 @@ int libxl__device_from_disk(libxl__gc *gc, uint32_t domid,
         default:
             LIBXL__LOG(ctx, LIBXL__LOG_ERROR, "unrecognized disk backend type: %d\n",
                        disk->backend);
-            return ERROR_INVAL;
+            return ERROR_INVAL_DISK_BACKEND;
     }
 
     device->domid = domid;
@@ -2391,7 +2398,7 @@ static void device_disk_add(libxl__egc *egc, uint32_t domid,
 
     libxl_domain_type type = libxl__domain_type(gc, domid);
     if (type == LIBXL_DOMAIN_TYPE_INVALID) {
-        rc = ERROR_FAIL;
+        rc = ERROR_INVAL_DOMAIN_TYPE;
         goto out;
     }
 
@@ -2423,7 +2430,7 @@ static void device_disk_add(libxl__egc *egc, uint32_t domid,
             assert(get_vdev_user);
             disk->vdev = get_vdev(gc, get_vdev_user, t);
             if (disk->vdev == NULL) {
-                rc = ERROR_FAIL;
+                rc = ERROR_DISK_VDEV_UNDETERMINED;
                 goto out;
             }
         }
@@ -2488,7 +2495,7 @@ static void device_disk_add(libxl__egc *egc, uint32_t domid,
                     if (!dev) {
                         LOG(ERROR, "failed to get blktap devpath for %p\n",
                             disk->pdev_path);
-                        rc = ERROR_FAIL;
+                        rc = ERROR_DISK_PDEV_NOT_FOUND;
                         goto out;
                     }
                 }
@@ -2511,7 +2518,7 @@ static void device_disk_add(libxl__egc *egc, uint32_t domid,
                 break;
             default:
                 LIBXL__LOG(ctx, LIBXL__LOG_ERROR, "unrecognized disk backend type: %d\n", disk->backend);
-                rc = ERROR_INVAL;
+                rc = ERROR_INVAL_DISK_BACKEND;
                 goto out;
         }
 
