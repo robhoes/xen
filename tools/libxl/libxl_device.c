@@ -768,6 +768,7 @@ void libxl__wait_device_connection(libxl__egc *egc, libxl__ao_device *aodev)
                                  LIBXL_INIT_TIMEOUT * 1000);
     if (rc) {
         LOG(ERROR, "unable to initialize device %s", be_path);
+        rc = ERROR_DEVICE_WAIT_INIT;
         goto out;
     }
 

@@ -122,6 +122,9 @@ libxl_error = Enumeration("error", [
     (ENUM_PREV, "JSON_GET_CONFIG"),
     (ENUM_PREV, "JSON_SET_CONFIG"),
     (ENUM_PREV, "JSON_PARSE_CONFIG"),
+    
+    # Unable to initialise device connection watch
+    (ENUM_PREV, "DEVICE_WAIT_INIT"),
     ], value_namespace = "")
 
 libxl_domain_type = Enumeration("domain_type", [
